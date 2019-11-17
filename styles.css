@@ -1,0 +1,41 @@
+.chatRoom {
+    display: none;
+}
+.user {
+    display: inline-block;
+}
+
+.user:nth-child(odd) {
+    margin-right: 50px;
+}
+
+.dialog {}
+
+.messages {
+    width: 360px;
+    height: 380px;
+    border: 1px solid #e8e8e8;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    overflow: auto;
+    padding: 10px 20px;
+}
+
+.message {
+    background: #f1fbff;
+    padding: 10px 8px;
+    border-bottom: 2px solid #ecf5f9;
+    border-radius: 10px;
+    margin-bottom: 5px;
+    color: #949494;
+}
+
+.message--diffColor {
+    background: #eff2fd;
+}
+
+.message span {
+    color: #4fc1bb;
+}
+
+form#msg-report {}
