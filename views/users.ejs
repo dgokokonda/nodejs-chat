@@ -1,0 +1,25 @@
+<% if (typeof users !== 'undefined') { %>
+<%- include('layout/header') %>
+
+<div class="main">
+  <div class="container">
+    <div class="users">
+      <h2>Users</h2>
+      <div class="users-list">
+        <% users.forEach(function(user) { %>
+        <div>
+          <!-- link to profile user/id -->
+          <span class="user"><%= user.login %></span>
+          <span
+            class="status <%= user.status == 'online' ? 'status--online' : 'status--offline' %>"><%= user.status %></span>
+          <a href="/write/<%= user.id %>">написать сообщение</a>
+        </div>
+        <% }) %>
+      </div>
+      <div class="bottom"></div>
+    </div>
+  </div>
+</div>
+
+<%- include('layout/footer') %>
+<% } %>

@@ -1,103 +1,98 @@
-'use strict'
-const http = require('http');
-const port = 80;
-const fs = require('fs');
-const path = require('path');
-const WebSocketServer = new require('ws');
+"use strict";
+const express = require("express");
+const bodyParser = require("body-parser");
+const path = require("path");
+const config = require("./config");
+const mongoose = require("mongoose");
+const routes = require("./routes");
+const session = require("express-session");
+const MongoStore = require("connect-mongo")(session);
+// const WebSocketServer = new require('ws');
 
 const clients = {};
 
-const webSocketServer = new WebSocketServer.Server({port: 8081});
-webSocketServer.on('connection', (ws) => {
-    const id = Math.random();
-    clients[id] = ws;
-    console.log("новое соединение " + id);
+// database
+mongoose.Promise = global.Promise;
+mongoose.set("debug", true);
 
-    ws.on('message', (data) => {
-        console.log('получено сообщение ' + data);
+mongoose.connection
+  .on("error", error => console.log(error))
+  .on("close", () => console.log("Database connection closed"))
+  .once("open", () => {
+    const info = mongoose.connections[0];
+    console.log(`Connected to ${info.host}:${info.port}/${info.name}`);
+  });
 
-        for(var key in clients) {
-            const parsedData = JSON.parse(data);
-            clients[key].send(JSON.stringify({...parsedData, id}));
-        }  
-    });
-
-    ws.on('close', () => {
-        console.log('соединение закрыто ' + id);
-        delete clients[id];
-    })
-})
-
-http.createServer((req, res) => {
-    let filePath = '.' + req.url;
-
-    if (req.url === '/') {
-        res.writeHead(200, {'Content-Type': 'text/plain'});
-        fs.readFile('index.html', (err, text) => {
-            if (err) throw err;
-            else {
-                res.writeHead(200, {
-                    'Content-Type': 'text/html; charset=utf-8'
-                });
-                res.end(text, 'utf-8');
-            }
-        });
-    }
-
-    if (req.url == '/auth') {
-        let body = '';
-        req.on('data', (data) => {
-            body += data;
-            res.end(body)
-            return body;
-        });
-
-        res.end('success')
-        
-    }
-
-    if (filePath == './') {
-        filePath = './index.html';
-    }
-
-    let extname = path.extname(filePath);
-    let contentType = 'text/html; charset=utf-8';
-    switch(extname) {
-        case '.js':
-            contentType = 'text/javascript';
-            break;
-        case '.css':
-            contentType = 'text/css';
-            break;
-        case '.json':
-            contentType = 'application/json';
-            break;
-        default:
-            break;
-    }
-
-    fs.readFile(filePath, (err, text) => {
-        if (err) {
-            if (err.code == 'ENOENT') {
-                fs.readFile('./404.html', (text) => {
-                    res.writeHead(200, {
-                        'Content-Type': contentType
-                    });
-                    res.end(text, 'utf-8');
-                });
-            } else {
-                res.writeHead(500);
-                res.end('Sorry, check with the site admin for error: ' + err.code + ' ..\n');
-                res.end();
-            }  
-        } else {
-            res.writeHead(200, {
-                'Content-Type': contentType
-            });
-            res.end(text, 'utf-8');
-        }
-    });
-}).listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}/`);
+mongoose.connect(config.MONGO_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true
 });
 
+// socket
+// const webSocketServer = new WebSocketServer.Server({ port: 5432 });
+// webSocketServer.on('connection', (ws) => {
+//     const id = Math.random();
+//     clients[id] = ws;
+//     console.log("новое соединение " + id);
+
+//     ws.on('message', (data) => {
+//         console.log('получено сообщение ' + data);
+
+//         for (var key in clients) {
+//             const parsedData = JSON.parse(data);
+//             clients[key].send(JSON.stringify({ ...parsedData, id }));
+//         }
+//     });
+
+//     ws.on('close', () => {
+//         console.log('соединение закрыто ' + id);
+//         delete clients[id];
+//     })
+// })
+
+const app = express();
+
+// sessions
+app.use(
+  session({
+    secret: config.SESSION_SECRET,
+    resave: true,
+    saveUninitialized: false,
+    store: new MongoStore({
+      mongooseConnection: mongoose.connection
+    }),
+    cookie: { maxAge: 1.8e6 } // 30 мин в мс
+  })
+);
+
+// sets and uses
+app.set("view engine", "ejs");
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  "/js",
+  express.static(path.join(__dirname, "node_modules", "jquery", "dist"))
+);
+
+app.use("/", routes.auth);
+app.use("/chat", routes.chat);
+// app.use("/users", routes.users);
+
+// catch 404 and forward to error handler
+app.use("/", (req, res, next) => {
+  next(new PageError("Page Not Found"));
+});
+
+app.use((error, req, res, next) => {
+  res.status(error.status || 500);
+  res.render("404", {
+    error
+  });
+  next();
+});
+
+app.listen(config.PORT, () =>
+  console.log(`Server is running on port ${config.PORT}`)
+);

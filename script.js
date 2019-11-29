@@ -1,5 +1,7 @@
 'use strict'
-
+// $(function () {
+//     console.log(123)
+//   })
 if (!window.WebSocket) {
 	document.body.innerHTML = 'WebSocket в этом браузере не поддерживается.';
 }
@@ -7,7 +9,7 @@ if (!window.WebSocket) {
 const form = document.querySelector('.msg-report');
 const user = document.querySelector('.user');
 let username = 'anonymous';
-const socket = new WebSocket(`ws://${document.location.host}:8081`); // or ws://localhost:8081
+const socket = new WebSocket(`ws://${document.location.host}:5432`); // or ws://localhost:8081
 
 socket.onclose = function (ev) {
     if (ev.wasClean) {

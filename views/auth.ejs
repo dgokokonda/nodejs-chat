@@ -1,0 +1,42 @@
+<%- include('layout/header') %>
+
+<div class="container container--auth">
+  <div class="auth">
+    <form method="post" name="auth">
+      <h2>Вход</h2>
+      <div class="form-group">
+        <label for="auth-login">Логин</label>
+        <input type="text" id="auth-login" name="auth-login" />
+      </div>
+      <div class="form-group">
+        <label for="auth-pass">Пароль</label>
+        <input type="password" id="auth-pass" name="auth-pass" />
+      </div>
+      <div class="btns">
+        <button class="button button--left js-reg">Регистрация</button>
+        <button class="button button--right js-confirm-auth">Войти</button>
+      </div>
+    </form>
+    <form method="post" name="reg">
+      <h2>Регистрация</h2>
+      <div class="form-group">
+        <label for="reg-login">Логин</label>
+        <input type="text" id="reg-login" name="reg-login" />
+      </div>
+      <div class="form-group">
+        <label for="reg-pass">Пароль</label>
+        <input type="password" id="reg-pass" name="reg-pass" />
+      </div>
+      <div class="form-group">
+        <label for="reg-pass-confirm">Повтор пароля</label>
+        <input type="password" id="reg-pass-confirm" name="reg-pass-confirm" />
+      </div>
+      <div class="btns">
+        <button class="button button--left js-auth">Авторизация</button>
+        <button class="button button--right js-confirm-reg">Создать</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('layout/footer') %>
