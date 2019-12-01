@@ -5,13 +5,18 @@
     <div class="chatRoom">
       <h2>Chat</h2>
       <div class="users">
-        <div class="user" id="<%= user.id %>">
+        <div class="user" data-login="<%= user.login %>" id="<%= user.id %>">
           <h3>User: <%= user.login %></h3>
           <div class="chat">
             <div class="messages"></div>
             <form name="sendMsg" class="msg-report">
               <input type="text" name="msg" />
-              <button class="button button--right">Send</button>
+              <button
+                data-recipient-id="<%= recipient %>"
+                class="button button--right"
+              >
+                Send
+              </button>
             </form>
           </div>
         </div>

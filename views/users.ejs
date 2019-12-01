@@ -1,5 +1,5 @@
-<% if (typeof users !== 'undefined') { %>
-<%- include('layout/header') %>
+<% var myId = user.id; %> <% if (typeof users !== 'undefined') { %> <%-
+include('layout/header') %>
 
 <div class="main">
   <div class="container">
@@ -11,8 +11,12 @@
           <!-- link to profile user/id -->
           <span class="user"><%= user.login %></span>
           <span
-            class="status <%= user.status == 'online' ? 'status--online' : 'status--offline' %>"><%= user.status %></span>
-          <a href="/write/<%= user.id %>">написать сообщение</a>
+            class="status <%= user.status == 'online' ? 'status--online' : 'status--offline' %>"
+            ><%= user.status %></span
+          >
+          <% if (user.id !== myId) { %>
+          <a href="/chat/<%= myId %>/sel=<%= user.id %>">написать сообщение</a>
+          <% } %>
         </div>
         <% }) %>
       </div>
@@ -21,5 +25,4 @@
   </div>
 </div>
 
-<%- include('layout/footer') %>
-<% } %>
+<%- include('layout/footer') %> <% } %>

@@ -3,11 +3,18 @@ const Schema = mongoose.Schema;
 
 const schema = new Schema(
   {
+    // status = public, private
     room: {
       type: Number,
       required: true
     },
-    user: {
+    sender: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+      // autopopulate: true
+    },
+    recipient: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true

@@ -3,13 +3,43 @@ if (!window.WebSocket) {
   document.body.innerHTML = "WebSocket в этом браузере не поддерживается.";
 }
 
-$(function() {
+$(function () {
   const form = $(".msg-report");
   const user = $(".user");
-  let username = "anonymous";
+  const username = user.data('login');
+  const socket = new WebSocket(`ws://${document.location.hostname}:5432`); // or ws://localhost:8081
+
+  // socket
+  socket.onclose = function (ev) {
+    if (ev.wasClean) {
+      console.log('Соединение закрыто чисто');
+    } else {
+      console.log('Обрыв соединения');
+    }
+    console.log('Код: ' + ev.code + ' причина: ' + ev.reason);
+  }
+
+  socket.onmessage = function (ev) {
+    const data = JSON.parse(ev.data);
+    console.log(data)
+    const msgs = user.find('.messages');
+    const anotherUser = username !== data.username;
+    const msgBlock = `<div
+    data-id="${data.id}"
+    class="message ${anotherUser ? 'message--diffColor' : ''}">
+    <span>${data.username}:</span> ${data.msg}</div>`;
+
+    msgs.append(msgBlock);
+    // if (success) push data + message date/time
+    form.find('[name="msg"]').val('');
+  }
+
+  socket.onerror = function (err) {
+    console.log('err', err)
+  }
 
   function pushMessage(msg) {
-    socket.send(JSON.stringify({ msg, username }));
+    socket.send(JSON.stringify({ msg, username, id: user.attr('id') }));
   }
 
   function resetForms(form, reset) {
@@ -41,7 +71,7 @@ $(function() {
       }
 
       if (data.fields) {
-        data.fields.forEach(function(item) {
+        data.fields.forEach(function (item) {
           form.find("#" + item).addClass("error");
         });
       }
@@ -51,23 +81,23 @@ $(function() {
     return data.ok;
   }
 
-  $(".js-reg, .js-auth").click(function(e) {
+  $(".js-reg, .js-auth").click(function (e) {
     e.preventDefault();
     $(".auth form").slideToggle(500);
     resetForms($(".auth form"));
   });
 
   // clear
-  $("input").on("focus", function() {
+  $("input").on("focus", function () {
     resetForms($(this).closest("form"), false);
   });
 
-  $(".form-group").on("click", function() {
+  $(".form-group").on("click", function () {
     resetForms($(this).closest("form"), false);
   });
 
   // register
-  $(".js-confirm-reg").on("click", function(e) {
+  $(".js-confirm-reg").on("click", function (e) {
     e.preventDefault();
 
     var el = this;
@@ -82,7 +112,7 @@ $(function() {
       data: JSON.stringify(data),
       contentType: "application/json",
       url: "/ajax/register"
-    }).done(function(data) {
+    }).done(function (data) {
       const success = validateForm.call(el, data);
 
       if (success) {
@@ -92,7 +122,7 @@ $(function() {
   });
 
   // authorization
-  $(".js-confirm-auth").on("click", function(e) {
+  $(".js-confirm-auth").on("click", function (e) {
     e.preventDefault();
 
     var el = this;
@@ -106,7 +136,7 @@ $(function() {
       data: JSON.stringify(data),
       contentType: "application/json",
       url: "/ajax/login"
-    }).done(function(data) {
+    }).done(function (data) {
       const success = validateForm.call(el, data);
 
       if (success) {
@@ -115,7 +145,7 @@ $(function() {
     });
   });
 
-  $(".auth form input").on("keydown", function(e) {
+  $(".auth form input").on("keydown", function (e) {
     if (e.key == "Enter") {
       $(this)
         .closest("form")
@@ -124,69 +154,14 @@ $(function() {
       e.preventDefault();
     }
   });
+
+  // chat
+  $('form[name=sendMsg').submit(function (e) {
+    e.preventDefault();
+    const newMsg = $(this).find('input[name=msg]').val();
+
+    if (newMsg) {
+      pushMessage(newMsg);
+    }
+  });
 });
-
-// const socket = new WebSocket(`ws://${document.location.host}:5432`); // or ws://localhost:8081
-
-// socket.onclose = function (ev) {
-//     if (ev.wasClean) {
-//         console.log('Соединение закрыто чисто');
-//     } else {
-//         console.log('Обрыв соединения');
-//     }
-//     console.log('Код: ' + ev.code + ' причина: ' + ev.reason);
-// }
-
-// socket.onmessage = function (ev) {
-//     const data = JSON.parse(ev.data);
-//     console.log(data)
-//     const msgs = user.querySelector('.messages');
-//     const content = msgs.innerHTML;
-//     const anotherUser = username !== data.username;
-//     const msgBlock = `<div
-//     data-id="${data.id}"
-//     class="message ${anotherUser ? 'message--diffColor' : ''}">
-//     <span>${data.username}:</span> ${data.msg}</div>`;
-
-//     msgs.innerHTML = content + msgBlock;
-//     form.querySelector('[name="msg"]').value = '';
-// }
-
-// socket.onerror = function (err) {
-//     console.log('err', err)
-// }
-
-// document.forms.sendMsg.onsubmit = function() {
-//   const newMsg = this.msg.value.trim();
-
-//   if (newMsg) {
-//     // pushMessage(newMsg)
-//   }
-//   return false;
-// };
-
-// document.forms.auth.onsubmit = function() {
-//   const self = this;
-//   const login = this.login.value.trim();
-
-//   if (login) {
-//     const xhr = new XMLHttpRequest();
-//     xhr.open("GET", "/auth", true);
-//     xhr.send(login);
-//     xhr.onreadystatechange = function() {
-//       if (xhr.readyState != 4) return;
-//       if (xhr.status != 200) return;
-//       else {
-//         if (xhr.responseText === "success") {
-//           username = login;
-//           self.login.value = "";
-//           document.querySelector(".login").style.display = "none";
-//           document.querySelector(".chatRoom").style.display = "block";
-//           // user.id =
-//           user.querySelector("h3").innerText = "User: " + username;
-//         }
-//       }
-//     };
-//   }
-//   return false;
-// };
