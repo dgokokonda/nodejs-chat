@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 const routes = require("./routes");
 const session = require("express-session");
 const MongoStore = require("connect-mongo")(session);
-const WebSocketServer = new require('ws');
+// const WebSocketServer = new require('ws');
 
 const clients = {};
 
@@ -30,26 +30,26 @@ mongoose.connect(config.MONGO_URL, {
 });
 
 // socket
-const webSocketServer = new WebSocketServer.Server({ port: 5432 });
-webSocketServer.on('connection', (ws) => {
-    const id = Math.random();
-    clients[id] = ws;
-    console.log("новое соединение " + id);
+// const webSocketServer = new WebSocketServer.Server({ port: 5432 });
+// webSocketServer.on('connection', (ws) => {
+//     const id = Math.random();
+//     clients[id] = ws;
+//     console.log("новое соединение " + id);
 
-    ws.on('message', (data) => {
-        console.log('получено сообщение ' + data);
+//     ws.on('message', (data) => {
+//         console.log('получено сообщение ' + data);
 
-        for (var key in clients) {
-            const parsedData = JSON.parse(data);
-            clients[key].send(JSON.stringify({ ...parsedData, id }));
-        }
-    });
+//         for (var key in clients) {
+//             const parsedData = JSON.parse(data);
+//             clients[key].send(JSON.stringify({ ...parsedData, id }));
+//         }
+//     });
 
-    ws.on('close', () => {
-        console.log('соединение закрыто ' + id);
-        delete clients[id];
-    })
-})
+//     ws.on('close', () => {
+//         console.log('соединение закрыто ' + id);
+//         delete clients[id];
+//     })
+// })
 
 const app = express();
 

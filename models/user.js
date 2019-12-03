@@ -15,8 +15,13 @@ const schema = new Schema(
     status: {
       type: String,
       default: "offline"
-    }
-    // chat rooms, users
+    },
+    chats: [
+      {
+        type: String,
+      }
+    ]
+    // users
   },
   {
     timestamps: true

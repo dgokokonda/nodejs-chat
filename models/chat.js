@@ -5,25 +5,39 @@ const schema = new Schema(
   {
     // status = public, private
     room: {
-      type: Number,
-      required: true
-    },
-    sender: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-      // autopopulate: true
-    },
-    recipient: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-      // autopopulate: true
-    },
-    message: {
       type: String,
       required: true
     },
+    users: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ],
+    lastMsg: {
+      type: Schema.Types.Mixed,
+      default: {}
+      // sender: {
+      //   id: {
+      //     type: Schema.Types.ObjectId,
+      //     ref: "User"
+      //   },
+      //   name: {
+      //     type: String
+      //   }
+      // },
+      // msg: {
+      //   type: String
+      // },
+      // createdAt: {
+      //   type: Date,
+      //   default: Date.now
+      // }
+    },
+    // msgCount: {
+    //   type: Number,
+    //   default: 0
+    // },
     createdAt: {
       type: Date,
       default: Date.now
@@ -33,6 +47,16 @@ const schema = new Schema(
     timestamps: true
   }
 );
+
+// schema.statics = {
+//   incMessagesCount(msgId) {
+//     return this.findByIdAndUpdate(
+//       msgId,
+//       { $inc: { msgCount: 1 } },
+//       { new: true }
+//     );
+//   }
+// };
 
 schema.set("toJSON", {
   virtuals: true

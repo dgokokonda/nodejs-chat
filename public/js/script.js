@@ -7,36 +7,36 @@ $(function () {
   const form = $(".msg-report");
   const user = $(".user");
   const username = user.data('login');
-  const socket = new WebSocket(`ws://${document.location.hostname}:5432`); // or ws://localhost:8081
+  // const socket = new WebSocket(`ws://${document.location.hostname}:5432`); // or ws://localhost:8081
 
-  // socket
-  socket.onclose = function (ev) {
-    if (ev.wasClean) {
-      console.log('Соединение закрыто чисто');
-    } else {
-      console.log('Обрыв соединения');
-    }
-    console.log('Код: ' + ev.code + ' причина: ' + ev.reason);
-  }
+  // // socket
+  // socket.onclose = function (ev) {
+  //   if (ev.wasClean) {
+  //     console.log('Соединение закрыто чисто');
+  //   } else {
+  //     console.log('Обрыв соединения');
+  //   }
+  //   console.log('Код: ' + ev.code + ' причина: ' + ev.reason);
+  // }
 
-  socket.onmessage = function (ev) {
-    const data = JSON.parse(ev.data);
-    console.log(data)
-    const msgs = user.find('.messages');
-    const anotherUser = username !== data.username;
-    const msgBlock = `<div
-    data-id="${data.id}"
-    class="message ${anotherUser ? 'message--diffColor' : ''}">
-    <span>${data.username}:</span> ${data.msg}</div>`;
+  // socket.onmessage = function (ev) {
+  //   const data = JSON.parse(ev.data);
+  //   console.log(data)
+  //   const msgs = user.find('.messages');
+  //   const anotherUser = username !== data.username;
+  //   const msgBlock = `<div
+  //   data-id="${data.id}"
+  //   class="message ${anotherUser ? 'message--diffColor' : ''}">
+  //   <span>${data.username}:</span> ${data.msg}</div>`;
 
-    msgs.append(msgBlock);
-    // if (success) push data + message date/time
-    form.find('[name="msg"]').val('');
-  }
+  //   msgs.append(msgBlock);
+  //   // if (success) push data + message date/time
+  //   form.find('[name="msg"]').val('');
+  // }
 
-  socket.onerror = function (err) {
-    console.log('err', err)
-  }
+  // socket.onerror = function (err) {
+  //   console.log('err', err)
+  // }
 
   function pushMessage(msg) {
     socket.send(JSON.stringify({ msg, username, id: user.attr('id') }));
@@ -161,7 +161,7 @@ $(function () {
     const newMsg = $(this).find('input[name=msg]').val();
 
     if (newMsg) {
-      pushMessage(newMsg);
+      // pushMessage(newMsg);
     }
   });
 });

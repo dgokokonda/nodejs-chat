@@ -1,0 +1,28 @@
+<% if (user) { %> <%- include('layout/header') %>
+
+<div class="main">
+  <div class="container">
+    <div class="chatRoom">
+      <h2>Chat</h2>
+      <div class="users">
+        <div class="user" data-login="<%= user.login %>" id="<%= user.id %>">
+          <h3>Dialog with <%= recipient ? recipient.login : 'me' %></h3>
+          <div class="chat">
+            <div class="messages"></div>
+            <form name="sendMsg" class="msg-report">
+              <input type="text" name="msg" />
+              <button
+                data-recipient-id="<%= recipient ? recipient.id : '' %>"
+                class="button button--right"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('layout/footer') %> <% } %>

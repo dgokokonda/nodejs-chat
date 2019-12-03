@@ -1,20 +1,72 @@
 const express = require("express");
 const router = express.Router();
-const { User } = require("../models");
+const { User, Chat, Message } = require("../models");
 
 async function toChat(req, res) {
-  const recipient = req.params.companion;
-  const { userId, userLogin, status } = req.session;
+  const companionId = req.params.companion;
+  const { userId, userLogin } = req.session;
 
   if (userId && userLogin) {
-    res.render("index.ejs", {
-      recipient: recipient || null,
-      user: {
-        id: userId,
-        login: userLogin,
-        status
+    const user = await User.findById(userId);
+    const companion = await User.findById(companionId);
+    const recipient = companion
+      ? {
+        id: companionId,
+        login: companion.login,
+        status: companion.status
       }
-    });
+      : null;
+
+    if (companion) {
+      // переход в комнату чата
+    
+      const chatByParams = {
+        users: { $all: [userId, companionId] } // $all - независимо от порядка эл-в в массиве
+      };
+      let chat = await Chat.findOne(chatByParams);
+
+      if (!chat) {
+        chat = await Chat.create({
+          room: Date.now().toString(),
+          users: [userId, companionId]
+        });
+      }
+      
+      if (!user.chats.length || !user.chats.filter(id => id == chat.room).length) {
+        user.chats.push(chat.room);
+        await user.save();
+      }
+      if (!companion.chats.length || !companion.chats.filter(id => id == chat.room).length) {
+        companion.chats.push(chat.room);
+        await companion.save();
+      }
+
+      let messages = await Message.find({ room: chat.room })
+        // .skip({$slice: -20})
+        .limit(20) || null; // отображать порциями при промотке
+
+      res.render("chat.ejs", {
+        recipient,
+        messages,
+        user: {
+          id: userId,
+          login: userLogin
+        }
+      });
+    } else {
+      // рендер списка чатов
+      const userChats = [];
+      user.chats.forEach(async ch => userChats.push(await Chat.findById(ch)));
+
+      res.render("index.ejs", {
+        recipient,
+        chats: userChats,
+        user: {
+          id: userId,
+          login: userLogin
+        }
+      });
+    }
   } else {
     res.redirect("/");
   }
