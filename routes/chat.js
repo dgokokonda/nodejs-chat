@@ -47,6 +47,7 @@ async function toChat(req, res) {
 
       res.render("chat.ejs", {
         recipient,
+        room: chat.room,
         messages,
         user: {
           id: userId,
@@ -95,7 +96,20 @@ router.get("/users", async (req, res) => {
 
 router.get("/:id", (req, res) => toChat(req, res));
 router.get("/:id/sel=:companion", (req, res) => toChat(req, res));
-
+router.post("/sendMsg", async (req, res) => {
+  const { msg, recipient, room } = req.body;
+  const { userId, userLogin, status } = req.session;
+  
+  const message = await Message.create({
+    room,
+    sender: userId,
+    recipient,
+    message: msg
+  });
+  res.json({
+    ok: true
+  });
+})
 // ajax send msg
 
 module.exports = router;

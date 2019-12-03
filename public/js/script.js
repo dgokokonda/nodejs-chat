@@ -7,6 +7,7 @@ $(function () {
   const form = $(".msg-report");
   const user = $(".user");
   const username = user.data('login');
+  const room = user.find('.chat').data('chat-id');
   // const socket = new WebSocket(`ws://${document.location.hostname}:5432`); // or ws://localhost:8081
 
   // // socket
@@ -39,7 +40,27 @@ $(function () {
   // }
 
   function pushMessage(msg) {
-    socket.send(JSON.stringify({ msg, username, id: user.attr('id') }));
+    // socket.send(JSON.stringify({ msg, username, id: user.attr('id') }));
+    const recipient = user.find('button').data('recipient-id');
+
+    $.ajax({
+      url: '/chat/sendMsg',
+      type: 'POST',
+      contentType: "application/json",
+      data: JSON.stringify({ msg, recipient, room }),
+      success: function () {
+        const msgs = user.find('.messages');
+        const msgBlock = `<div
+    data-id="${user.id}" class="message">
+    <span>${username}:</span> ${msg}</div>`;
+
+        msgs.append(msgBlock);
+        form.find('[name="msg"]').val('');
+      },
+      error: function (err) {
+        console.log(err)
+      }
+    });
   }
 
   function resetForms(form, reset) {
@@ -161,7 +182,7 @@ $(function () {
     const newMsg = $(this).find('input[name=msg]').val();
 
     if (newMsg) {
-      // pushMessage(newMsg);
+      pushMessage(newMsg);
     }
   });
 });

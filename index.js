@@ -78,7 +78,6 @@ app.use(
 
 app.use("/", routes.auth);
 app.use("/chat", routes.chat);
-// app.use("/users", routes.users);
 
 // catch 404 and forward to error handler
 app.use("/", (req, res, next) => {

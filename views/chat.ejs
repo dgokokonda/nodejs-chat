@@ -7,7 +7,7 @@
       <div class="users">
         <div class="user" data-login="<%= user.login %>" id="<%= user.id %>">
           <h3>Dialog with <%= recipient ? recipient.login : 'me' %></h3>
-          <div class="chat">
+          <div class="chat" data-chat-id="<%= room %>">
             <div class="messages"></div>
             <form name="sendMsg" class="msg-report">
               <input type="text" name="msg" />
