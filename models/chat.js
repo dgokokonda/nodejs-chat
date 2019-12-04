@@ -10,8 +10,7 @@ const schema = new Schema(
     },
     users: [
       {
-        type: Schema.Types.ObjectId,
-        ref: "User"
+        type: Schema.Types.Mixed
       }
     ],
     lastMsg: {

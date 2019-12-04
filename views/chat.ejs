@@ -9,14 +9,18 @@
           <h3>Dialog with <%= recipient.login %></h3>
           <div class="chat" data-chat-id="<%= room %>">
             <div class="messages">
-              <% if (messages) { %>
-                <% messages.forEach(function(msg) { %>
-                  <div data-id="<%= msg.sender %>" class="message">
-                    <span><%= msg.sender == user.id ? user.login : recipient.login %>:</span> <span class="msg-time"><%= moment(msg.createdAt).format('DD MMM HH:mm') %></span>
-                    <p><%= msg.message %></p>
-                  </div>
-                <% }) %>
-              <% } %>
+              <% if (messages) { %> <% messages.forEach(function(msg) { %>
+              <div data-id="<%= msg.sender %>" class="message">
+                <span
+                  ><%= msg.sender == user.id ? user.login : recipient.login
+                  %>:</span
+                >
+                <span class="msg-time"
+                  ><%= moment(msg.createdAt).format('HH:mm') %></span
+                >
+                <p><%= msg.message %></p>
+              </div>
+              <% }) %> <% } %>
             </div>
             <form name="sendMsg" class="msg-report">
               <input type="text" name="msg" />

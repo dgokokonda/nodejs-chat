@@ -1,5 +1,6 @@
-html, body {
-  font-family: 'Underdog', cursive;
+html,
+body {
+  font-family: "Underdog", cursive;
   margin: 0;
   padding: 0;
 }
@@ -81,12 +82,12 @@ header .avatar {
   vertical-align: top;
 }
 
-.links>* {
+.links > * {
   margin: 0 15px;
   font-size: 16px;
 }
 
-.container>.users {
+.container > .users {
   width: 400px;
 }
 
@@ -125,7 +126,7 @@ header .avatar {
 .users a {
   float: right;
   font-size: 15px;
-  color: #2196F3;
+  color: #2196f3;
   float: right;
 }
 
@@ -185,7 +186,8 @@ form[name="reg"] {
   background-color: #1a8ef3;
 }
 
-input, textarea {
+input,
+textarea {
   background-color: #ffffff;
   border: 1px solid #e8e8e8;
   display: table;
@@ -199,19 +201,23 @@ input {
   width: 100%;
 }
 
-input:disabled, textarea:disabled {
+input:disabled,
+textarea:disabled {
   background-color: #e8e8e8;
 }
 
-input:hover, textarea:hover {
+input:hover,
+textarea:hover {
   box-shadow: 0;
 }
 
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
   border-color: lighten(#08aef1, 40%);
 }
 
-input::placeholder, textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
   opacity: 0.8;
   font-style: italic;
 }
@@ -220,7 +226,8 @@ form {
   line-height: 36px;
 }
 
-form p.error, form p.success {
+form p.error,
+form p.success {
   font-weight: bold;
   margin: 0;
   line-height: 18px;
@@ -277,7 +284,7 @@ textarea {
   border-color: #e4a142;
 }
 
-.form-group>div {
+.form-group > div {
   min-height: 200px;
   background-color: #ffffff;
   border: 1px solid #e8e8e8;
@@ -285,15 +292,62 @@ textarea {
   outline: none;
 }
 
-input.error, textarea.error, .form-group>div.error {
+input.error,
+textarea.error,
+.form-group > div.error {
   border: 1px solid #ff2222;
 }
 
 /* chat */
 
-/* .chatRoom {
-  display: none;
-} */
+.dialogs-wrapper {
+  width: 80%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dialogs-wrapper h2 {
+  color: #2896f7;
+}
+
+.dialogs .list {
+  color: #adadad;
+}
+
+.dialogs .user {
+  border-bottom: 1px solid #f4f4f5;
+}
+
+.dialogs .user:hover {
+  background: #f3f3f3;
+}
+
+.dialogs .msg {
+  padding-left: 40px;
+}
+
+.dialogs a:not(.list) {
+  text-decoration: none;
+}
+
+.dialogs .msg {
+  color: #000000;
+}
+
+.dialogs .msg-time {
+  float: right;
+  color: #adadad;
+}
+
+.dialogs .user {
+  padding: 10px;
+  background: #f9fcff;
+}
+
+.dialogs .username b span {
+  font-size: 18px;
+  color: #2483ce;
+}
 
 .chatRoom .user {
   display: inline-block;
@@ -302,9 +356,10 @@ input.error, textarea.error, .form-group>div.error {
 
 /* .chatRoom .user:nth-child(odd) {
   margin-right: 50px;
-} */
+}
 
-.chatRoom .dialog {}
+.chatRoom .dialog {
+} */
 
 .chatRoom .messages {
   width: 500px;

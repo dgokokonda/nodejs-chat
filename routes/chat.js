@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const moment = require('moment');
+const moment = require("moment");
 const { User, Chat, Message } = require("../models");
 
-moment.locale('ru');
+moment.locale("ru");
 
 async function toChat(req, res) {
   const { userId, userLogin } = req.session;
@@ -21,29 +21,44 @@ async function toChat(req, res) {
         status: companion.status
       };
       const chatByParams = {
-        users: { $all: [userId, companionId] } // $all - независимо от порядка эл-в в массиве
+        users: {
+          $all: [
+            { id: userId, login: userLogin },
+            { id: companionId, login: companion.login }
+          ]
+        } // $all - независимо от порядка эл-в в массиве
       };
       let chat = await Chat.findOne(chatByParams);
 
       if (!chat) {
         chat = await Chat.create({
           room: Date.now().toString(),
-          users: [userId, companionId]
+          users: [
+            { id: userId, login: userLogin },
+            { id: companionId, login: companion.login }
+          ]
         });
       }
 
-      if (!user.chats.length || !user.chats.filter(id => id == chat.room).length) {
+      if (
+        !user.chats.length ||
+        !user.chats.filter(id => id == chat.room).length
+      ) {
         user.chats.push(chat.room);
         await user.save();
       }
-      if (!companion.chats.length || !companion.chats.filter(id => id == chat.room).length) {
+      if (
+        !companion.chats.length ||
+        !companion.chats.filter(id => id == chat.room).length
+      ) {
         companion.chats.push(chat.room);
         await companion.save();
       }
 
-      let messages = await Message.find({ room: chat.room })
-        // .skip({$slice: -20})
-        .limit(20) || null; // отображать порциями при промотке
+      let messages =
+        (await Message.find({ room: chat.room })
+          // .skip({$slice: -20})
+          .limit(20)) || null; // отображать порциями при промотке
 
       res.render("chat.ejs", {
         moment,
@@ -57,21 +72,11 @@ async function toChat(req, res) {
       });
     } else {
       // рендер списка чатов
-      const recipient = []
-      const userChats = await Chat.find({ room: user.chats });
-      // userChats.forEach(ch => {
-      //   const id = ch.users.find(us => us.id !== userId);
-      //   const companion = User.findById(id);
-      //   console.log(111, companion)
-
-      //   recipient.push({[id]: companion.login});
-      // });
-      // console.log(1,recipient)
+      const chats = await Chat.find({ room: user.chats });
 
       res.render("index.ejs", {
         moment,
-        chats: userChats,
-        // recipient,
+        chats,
         user: {
           id: userId,
           login: userLogin
@@ -130,8 +135,7 @@ router.post("/sendMsg", async (req, res) => {
       ok: true
     });
   }
-
-})
+});
 // ajax send msg
 
 module.exports = router;
