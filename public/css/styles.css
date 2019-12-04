@@ -337,6 +337,13 @@ input.error, textarea.error, .form-group>div.error {
   flex-direction: row;
 }
 
+.chatRoom .msg-time {
+  float: right;
+}
+.message p {
+  margin: 0;
+}
+
 .msg-report input {
   border-radius: 5px;
   outline: none;

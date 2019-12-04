@@ -1,4 +1,4 @@
-<% if (user) { %> <%- include('layout/header') %>
+<% if (user.id && user.login) { %> <%- include('layout/header') %>
 
 <div class="main">
   <div class="container">
@@ -6,13 +6,22 @@
       <h2>Chat</h2>
       <div class="users">
         <div class="user" data-login="<%= user.login %>" id="<%= user.id %>">
-          <h3>Dialog with <%= recipient ? recipient.login : 'me' %></h3>
+          <h3>Dialog with <%= recipient.login %></h3>
           <div class="chat" data-chat-id="<%= room %>">
-            <div class="messages"></div>
+            <div class="messages">
+              <% if (messages) { %>
+                <% messages.forEach(function(msg) { %>
+                  <div data-id="<%= msg.sender %>" class="message">
+                    <span><%= msg.sender == user.id ? user.login : recipient.login %>:</span> <span class="msg-time"><%= moment(msg.createdAt).format('DD MMM HH:mm') %></span>
+                    <p><%= msg.message %></p>
+                  </div>
+                <% }) %>
+              <% } %>
+            </div>
             <form name="sendMsg" class="msg-report">
               <input type="text" name="msg" />
               <button
-                data-recipient-id="<%= recipient ? recipient.id : '' %>"
+                data-recipient-id="<%= recipient.id %>"
                 class="button button--right"
               >
                 Send

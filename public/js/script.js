@@ -49,13 +49,14 @@ $(function () {
       contentType: "application/json",
       data: JSON.stringify({ msg, recipient, room }),
       success: function () {
-        const msgs = user.find('.messages');
-        const msgBlock = `<div
-    data-id="${user.id}" class="message">
-    <span>${username}:</span> ${msg}</div>`;
+    //     const msgs = user.find('.messages');
+    //     const msgBlock = `<div
+    // data-id="${user.id}" class="message">
+    // <span>${username}:</span> ${msg}</div>`;
 
-        msgs.append(msgBlock);
+    //     msgs.append(msgBlock);
         form.find('[name="msg"]').val('');
+        location.reload(true);
       },
       error: function (err) {
         console.log(err)

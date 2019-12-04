@@ -15,24 +15,26 @@ const schema = new Schema(
       }
     ],
     lastMsg: {
-      type: Schema.Types.Mixed,
-      default: {}
-      // sender: {
-      //   id: {
-      //     type: Schema.Types.ObjectId,
-      //     ref: "User"
-      //   },
-      //   name: {
-      //     type: String
-      //   }
-      // },
-      // msg: {
-      //   type: String
-      // },
-      // createdAt: {
-      //   type: Date,
-      //   default: Date.now
-      // }
+      sender: {
+        id: {
+          type: Schema.Types.ObjectId,
+          ref: "User"
+        },
+        name: {
+          type: String
+        }
+      },
+      msg: {
+        type: String
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now
+      },
+      updatedAt: {
+        type: Date,
+        default: Date.now
+      }
     },
     // msgCount: {
     //   type: Number,

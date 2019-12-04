@@ -1,25 +1,25 @@
 const express = require("express");
 const router = express.Router();
+const moment = require('moment');
 const { User, Chat, Message } = require("../models");
 
+moment.locale('ru');
+
 async function toChat(req, res) {
-  const companionId = req.params.companion;
   const { userId, userLogin } = req.session;
 
   if (userId && userLogin) {
+    const companionId = req.params.companion;
     const user = await User.findById(userId);
     const companion = await User.findById(companionId);
-    const recipient = companion
-      ? {
-        id: companionId,
-        login: companion.login,
-        status: companion.status
-      }
-      : null;
 
     if (companion) {
       // переход в комнату чата
-    
+      const recipient = {
+        id: companionId,
+        login: companion.login,
+        status: companion.status
+      };
       const chatByParams = {
         users: { $all: [userId, companionId] } // $all - независимо от порядка эл-в в массиве
       };
@@ -31,7 +31,7 @@ async function toChat(req, res) {
           users: [userId, companionId]
         });
       }
-      
+
       if (!user.chats.length || !user.chats.filter(id => id == chat.room).length) {
         user.chats.push(chat.room);
         await user.save();
@@ -46,6 +46,7 @@ async function toChat(req, res) {
         .limit(20) || null; // отображать порциями при промотке
 
       res.render("chat.ejs", {
+        moment,
         recipient,
         room: chat.room,
         messages,
@@ -56,12 +57,21 @@ async function toChat(req, res) {
       });
     } else {
       // рендер списка чатов
-      const userChats = [];
-      user.chats.forEach(async ch => userChats.push(await Chat.findById(ch)));
+      const recipient = []
+      const userChats = await Chat.find({ room: user.chats });
+      // userChats.forEach(ch => {
+      //   const id = ch.users.find(us => us.id !== userId);
+      //   const companion = User.findById(id);
+      //   console.log(111, companion)
+
+      //   recipient.push({[id]: companion.login});
+      // });
+      // console.log(1,recipient)
 
       res.render("index.ejs", {
-        recipient,
+        moment,
         chats: userChats,
+        // recipient,
         user: {
           id: userId,
           login: userLogin
@@ -99,16 +109,28 @@ router.get("/:id/sel=:companion", (req, res) => toChat(req, res));
 router.post("/sendMsg", async (req, res) => {
   const { msg, recipient, room } = req.body;
   const { userId, userLogin, status } = req.session;
-  
-  const message = await Message.create({
-    room,
-    sender: userId,
-    recipient,
-    message: msg
-  });
-  res.json({
-    ok: true
-  });
+
+  if (userId && userLogin) {
+    await Message.create({
+      room,
+      sender: userId,
+      recipient,
+      message: msg
+    });
+
+    const chat = await Chat.findOne({ room });
+    chat.lastMsg.sender = {
+      id: userId,
+      name: userLogin
+    };
+    chat.lastMsg.msg = msg;
+    await chat.save();
+
+    res.json({
+      ok: true
+    });
+  }
+
 })
 // ajax send msg
 
