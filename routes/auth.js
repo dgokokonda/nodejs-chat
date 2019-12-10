@@ -40,7 +40,7 @@ router.post("/ajax/login", async (req, res) => {
           });
         } else {
           if (user) {
-            user.status = 'online';
+            user.status = "online";
             await user.save();
 
             req.session.userId = user.id;
@@ -114,6 +114,7 @@ router.post("/ajax/register", async (req, res) => {
             req.session.userId = user.id;
             req.session.userLogin = user.login;
             req.session.status = user.status;
+
             res.json({
               ok: true,
               userId: user.id
@@ -144,16 +145,14 @@ router.get("/ajax/logout", async (req, res) => {
   if (req.session) {
     try {
       const user = await User.findOne({ login: req.session.userLogin });
-      user.status = 'offine';
+      user.status = "offine";
       await user.save();
-
 
       req.session.destroy(() => {
         res.redirect("/");
       });
-    }
-    catch (err) {
-      throw new Error('Server Error')
+    } catch (err) {
+      throw new Error("Server Error");
     }
   } else {
     res.redirect("/");

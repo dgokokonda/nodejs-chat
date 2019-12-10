@@ -7,9 +7,6 @@ const mongoose = require("mongoose");
 const routes = require("./routes");
 const session = require("express-session");
 const MongoStore = require("connect-mongo")(session);
-// const WebSocketServer = new require('ws');
-
-const clients = {};
 
 // database
 mongoose.Promise = global.Promise;
@@ -29,42 +26,19 @@ mongoose.connect(config.MONGO_URL, {
   useCreateIndex: true
 });
 
-// socket
-// const webSocketServer = new WebSocketServer.Server({ port: 5432 });
-// webSocketServer.on('connection', (ws) => {
-//     const id = Math.random();
-//     clients[id] = ws;
-//     console.log("новое соединение " + id);
-
-//     ws.on('message', (data) => {
-//         console.log('получено сообщение ' + data);
-
-//         for (var key in clients) {
-//             const parsedData = JSON.parse(data);
-//             clients[key].send(JSON.stringify({ ...parsedData, id }));
-//         }
-//     });
-
-//     ws.on('close', () => {
-//         console.log('соединение закрыто ' + id);
-//         delete clients[id];
-//     })
-// })
-
 const app = express();
+const sessionParser = session({
+  secret: config.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: new MongoStore({
+    mongooseConnection: mongoose.connection
+  }),
+  cookie: { maxAge: 1.8e6 } // 30 мин в мс
+});
 
 // sessions
-app.use(
-  session({
-    secret: config.SESSION_SECRET,
-    resave: true,
-    saveUninitialized: false,
-    store: new MongoStore({
-      mongooseConnection: mongoose.connection
-    }),
-    cookie: { maxAge: 1.8e6 } // 30 мин в мс
-  })
-);
+app.use(sessionParser);
 
 // sets and uses
 app.set("view engine", "ejs");
@@ -95,3 +69,5 @@ app.use((error, req, res, next) => {
 app.listen(config.PORT, () =>
   console.log(`Server is running on port ${config.PORT}`)
 );
+
+module.exports = sessionParser;

@@ -2,13 +2,49 @@ const express = require("express");
 const router = express.Router();
 const moment = require("moment");
 const { User, Chat, Message } = require("../models");
+const WebSocketServer = new require("ws");
+const clients = {};
+let sessionUserId = null;
 
 moment.locale("ru");
+
+// socket
+const wss = new WebSocketServer.Server({ port: 8082 });
+// add ping pong for updating status
+// update dialog last msgs
+// add scroll load msgs
+// filter clients by rooms
+wss.on("connection", ws => {
+  if (sessionUserId) {
+    const id = sessionUserId;
+    clients[id] = ws;
+
+    ws.on("message", data => {
+      const parsedData = JSON.parse(data);
+
+      for (var key in clients) {
+        clients[key].send(
+          JSON.stringify({
+            ...parsedData,
+            id: key,
+            time: moment(Date.now()).format("HH:mm")
+          }))
+      }
+    });
+    ws.on('close', function () {
+      console.log('Соединение закрыто', id)
+      delete clients[id];
+      // console.log(2,Object.keys(clients))
+    });
+  }
+});
+
 
 async function toChat(req, res) {
   const { userId, userLogin } = req.session;
 
   if (userId && userLogin) {
+    sessionUserId = userId;
     const companionId = req.params.companion;
     const user = await User.findById(userId);
     const companion = await User.findById(companionId);
@@ -55,10 +91,11 @@ async function toChat(req, res) {
         await companion.save();
       }
 
-      let messages =
-        (await Message.find({ room: chat.room })
-          // .skip({$slice: -20})
-          .limit(20)) || null; // отображать порциями при промотке
+      let messages = await Message.find(
+        { room: chat.room })
+        .sort({ createdAt: -1 })
+        .limit(20);
+      //  || null; // отображать порциями при промотке
 
       res.render("chat.ejs", {
         moment,

@@ -6,60 +6,57 @@ if (!window.WebSocket) {
 $(function () {
   const form = $(".msg-report");
   const user = $(".user");
-  const username = user.data('login');
-  const room = user.find('.chat').data('chat-id');
-  // const socket = new WebSocket(`ws://${document.location.hostname}:5432`); // or ws://localhost:8081
+  const username = user.data("login");
+  const room = user.find(".chat").data("chat-id");
+  const socket = new WebSocket(`ws://${document.location.hostname}:8082`); // or ws://localhost:8081
+  // socket
+  socket.onclose = function (ev) {
+    if (ev.wasClean) {
+      console.log("Соединение закрыто чисто");
+    } else {
+      console.log("Обрыв соединения");
+    }
+    console.log("Код: " + ev.code + " причина: " + ev.reason);
+  };
 
-  // // socket
-  // socket.onclose = function (ev) {
-  //   if (ev.wasClean) {
-  //     console.log('Соединение закрыто чисто');
-  //   } else {
-  //     console.log('Обрыв соединения');
-  //   }
-  //   console.log('Код: ' + ev.code + ' причина: ' + ev.reason);
-  // }
+  socket.onmessage = function (ev) {
+    const data = JSON.parse(ev.data);
+    // console.log(data);
+    const msgs = $(".messages"); // $(".messages")
+    const msgBlock = `<div
+    data-id="${data.id}"
+    class="message">
+    <span>${data.username}:</span>
+    <span class="msg-time">${data.time}</span>
+    <p>${data.msg}</p>
+    </div>`;
 
-  // socket.onmessage = function (ev) {
-  //   const data = JSON.parse(ev.data);
-  //   console.log(data)
-  //   const msgs = user.find('.messages');
-  //   const anotherUser = username !== data.username;
-  //   const msgBlock = `<div
-  //   data-id="${data.id}"
-  //   class="message ${anotherUser ? 'message--diffColor' : ''}">
-  //   <span>${data.username}:</span> ${data.msg}</div>`;
+    msgs.animate({ scrollTop: 0 });
+    // msgs.animate({ scrollTop: $('.messages .message:last-child').position().top });
+    msgs.prepend(msgBlock);
+    // if (success) push data + message date/time
+    form.find('[name="msg"]').val("");
+  };
 
-  //   msgs.append(msgBlock);
-  //   // if (success) push data + message date/time
-  //   form.find('[name="msg"]').val('');
-  // }
-
-  // socket.onerror = function (err) {
-  //   console.log('err', err)
-  // }
+  socket.onerror = function (err) {
+    console.log("err", err);
+  };
 
   function pushMessage(msg) {
-    // socket.send(JSON.stringify({ msg, username, id: user.attr('id') }));
-    const recipient = user.find('button').data('recipient-id');
+    const recipient = user.find("button").data("recipient-id");
 
     $.ajax({
-      url: '/chat/sendMsg',
-      type: 'POST',
+      url: "/chat/sendMsg",
+      type: "POST",
       contentType: "application/json",
       data: JSON.stringify({ msg, recipient, room }),
       success: function () {
-    //     const msgs = user.find('.messages');
-    //     const msgBlock = `<div
-    // data-id="${user.id}" class="message">
-    // <span>${username}:</span> ${msg}</div>`;
-
-    //     msgs.append(msgBlock);
-        form.find('[name="msg"]').val('');
-        location.reload(true);
+        socket.send(JSON.stringify({ msg, username, id: user.attr("id") }));
+        form.find('[name="msg"]').val("");
+        // location.reload(true);
       },
       error: function (err) {
-        console.log(err)
+        console.log(err);
       }
     });
   }
@@ -178,9 +175,11 @@ $(function () {
   });
 
   // chat
-  $('form[name=sendMsg').submit(function (e) {
+  $("form[name=sendMsg").submit(function (e) {
     e.preventDefault();
-    const newMsg = $(this).find('input[name=msg]').val();
+    const newMsg = $(this)
+      .find("input[name=msg]")
+      .val();
 
     if (newMsg) {
       pushMessage(newMsg);
