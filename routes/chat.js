@@ -28,23 +28,24 @@ wss.on("connection", ws => {
             ...parsedData,
             id: key,
             time: moment(Date.now()).format("HH:mm")
-          }))
+          })
+        );
       }
     });
-    ws.on('close', function () {
-      console.log('Соединение закрыто', id)
+    ws.on("close", function() {
+      console.log("Соединение закрыто", id);
       delete clients[id];
       // console.log(2,Object.keys(clients))
     });
   }
 });
 
-
 async function toChat(req, res) {
   const { userId, userLogin } = req.session;
 
   if (userId && userLogin) {
     sessionUserId = userId;
+
     const companionId = req.params.companion;
     const user = await User.findById(userId);
     const companion = await User.findById(companionId);
@@ -91,8 +92,7 @@ async function toChat(req, res) {
         await companion.save();
       }
 
-      let messages = await Message.find(
-        { room: chat.room })
+      let messages = await Message.find({ room: chat.room })
         .sort({ createdAt: -1 })
         .limit(20);
       //  || null; // отображать порциями при промотке

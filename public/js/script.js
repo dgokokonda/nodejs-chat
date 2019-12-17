@@ -3,26 +3,16 @@ if (!window.WebSocket) {
   document.body.innerHTML = "WebSocket в этом браузере не поддерживается.";
 }
 
-$(function () {
+$(function() {
   const form = $(".msg-report");
   const user = $(".user");
   const username = user.data("login");
   const room = user.find(".chat").data("chat-id");
   const socket = new WebSocket(`ws://${document.location.hostname}:8082`); // or ws://localhost:8081
   // socket
-  socket.onclose = function (ev) {
-    if (ev.wasClean) {
-      console.log("Соединение закрыто чисто");
-    } else {
-      console.log("Обрыв соединения");
-    }
-    console.log("Код: " + ev.code + " причина: " + ev.reason);
-  };
-
-  socket.onmessage = function (ev) {
+  socket.onmessage = function(ev) {
     const data = JSON.parse(ev.data);
-    // console.log(data);
-    const msgs = $(".messages"); // $(".messages")
+    const msgs = $(".messages");
     const msgBlock = `<div
     data-id="${data.id}"
     class="message">
@@ -34,11 +24,29 @@ $(function () {
     msgs.animate({ scrollTop: 0 });
     // msgs.animate({ scrollTop: $('.messages .message:last-child').position().top });
     msgs.prepend(msgBlock);
-    // if (success) push data + message date/time
     form.find('[name="msg"]').val("");
+
+    if ($(".dialogs").length) {
+      const myId = $("header span.me").data("my-id");
+      const dialog = $(`.dialog[data-chat-id="${data.room}"]`);
+      const lastMsg = `<div class="username">
+          <b><span>${data.username}</span></b>
+          <span class="msg-time">${data.time}</span></div>
+        <div class="msg">${data.msg}</div>`;
+
+      if (dialog.length) {
+        dialog.html(lastMsg);
+      } else {
+        const dialogWrapper = `<div class="user" data-friend-id="${data.userId}">
+          <a href="/chat/${myId}/sel=${data.userId}">
+            <div class="avatar">${""}</div>`;
+
+        $(".dialogs").prepend(dialogWrapper + lastMsg + "</a></div>");
+      }
+    }
   };
 
-  socket.onerror = function (err) {
+  socket.onerror = function(err) {
     console.log("err", err);
   };
 
@@ -50,12 +58,21 @@ $(function () {
       type: "POST",
       contentType: "application/json",
       data: JSON.stringify({ msg, recipient, room }),
-      success: function () {
-        socket.send(JSON.stringify({ msg, username, id: user.attr("id") }));
+      success: function() {
+        socket.send(
+          JSON.stringify({
+            msg,
+            username,
+            userId: user.attr("id"),
+            // recipient,
+            // sender: user.attr("id"),
+            room
+          })
+        );
         form.find('[name="msg"]').val("");
         // location.reload(true);
       },
-      error: function (err) {
+      error: function(err) {
         console.log(err);
       }
     });
@@ -90,7 +107,7 @@ $(function () {
       }
 
       if (data.fields) {
-        data.fields.forEach(function (item) {
+        data.fields.forEach(function(item) {
           form.find("#" + item).addClass("error");
         });
       }
@@ -100,23 +117,23 @@ $(function () {
     return data.ok;
   }
 
-  $(".js-reg, .js-auth").click(function (e) {
+  $(".js-reg, .js-auth").click(function(e) {
     e.preventDefault();
     $(".auth form").slideToggle(500);
     resetForms($(".auth form"));
   });
 
   // clear
-  $("input").on("focus", function () {
+  $("input").on("focus", function() {
     resetForms($(this).closest("form"), false);
   });
 
-  $(".form-group").on("click", function () {
+  $(".form-group").on("click", function() {
     resetForms($(this).closest("form"), false);
   });
 
   // register
-  $(".js-confirm-reg").on("click", function (e) {
+  $(".js-confirm-reg").on("click", function(e) {
     e.preventDefault();
 
     var el = this;
@@ -131,7 +148,7 @@ $(function () {
       data: JSON.stringify(data),
       contentType: "application/json",
       url: "/ajax/register"
-    }).done(function (data) {
+    }).done(function(data) {
       const success = validateForm.call(el, data);
 
       if (success) {
@@ -141,7 +158,7 @@ $(function () {
   });
 
   // authorization
-  $(".js-confirm-auth").on("click", function (e) {
+  $(".js-confirm-auth").on("click", function(e) {
     e.preventDefault();
 
     var el = this;
@@ -155,7 +172,7 @@ $(function () {
       data: JSON.stringify(data),
       contentType: "application/json",
       url: "/ajax/login"
-    }).done(function (data) {
+    }).done(function(data) {
       const success = validateForm.call(el, data);
 
       if (success) {
@@ -164,7 +181,7 @@ $(function () {
     });
   });
 
-  $(".auth form input").on("keydown", function (e) {
+  $(".auth form input").on("keydown", function(e) {
     if (e.key == "Enter") {
       $(this)
         .closest("form")
@@ -175,7 +192,7 @@ $(function () {
   });
 
   // chat
-  $("form[name=sendMsg").submit(function (e) {
+  $("form[name=sendMsg").submit(function(e) {
     e.preventDefault();
     const newMsg = $(this)
       .find("input[name=msg]")

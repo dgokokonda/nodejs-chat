@@ -12,11 +12,11 @@
         <div class="user" data-friend-id="<%= recipient.id %>">
           <a href="/chat/<%= user.id %>/sel=<%= recipient.id %>">
             <div class="avatar"></div>
-            <div class="dialog" data-chat-id="<%= chat.id %>">
+            <div class="dialog" data-chat-id="<%= chat.room %>">
               <div class="username">
                 <b><span><%= recipient.login %></span></b>
                 <span class="msg-time"
-                  ><%= moment(chat.lastMsg.createdAt).format('DD MMM') %></span
+                  ><%= moment(chat.lastMsg.createdAt).format('HH:mm') %></span
                 >
               </div>
               <div class="msg"><%= chat.lastMsg.msg %></div>

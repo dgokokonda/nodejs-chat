@@ -1,34 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Chat</title>
+    <link
+      href="https://fonts.googleapis.com/css?family=Underdog&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" type="text/css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-  <title>Chat</title>
-  <link href="https://fonts.googleapis.com/css?family=Underdog&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css" type="text/css" />
-</head>
-
-<body>
-  <header>
-    <div class="nav">
-      <% if (typeof user !== 'undefined') { %>
-      <span class="avatar"></span>
-      <span>Hello, <%= user.login %></span>
-      <div class="links">
-        <a href="/chat/users">Список юзеров</a>
-        <a href="/chat/<%= user.id %>">Чатик</a>
-        <!-- <div class="search">
+  <body>
+    <header>
+      <div class="nav">
+        <% if (typeof user !== 'undefined') { %>
+        <span class="avatar"></span>
+        <span class="me" data-my-id="<%= user.id %>">Hello, <%= user.login %></span>
+        <div class="links">
+          <a href="/chat/users">Список юзеров</a>
+          <a href="/chat/<%= user.id %>">Чатик</a>
+          <!-- <div class="search">
                     <label for="">Найти пользователей:</label>
                     <input type="text" placeholder="search users">
                 </div> -->
-      </div>
-      <a href="/ajax/logout">Выйти</a>
+        </div>
+        <a href="/ajax/logout">Выйти</a>
 
-      <% } else { %>
-      <a href="/">Войти</a>
-      <% } %>
-    </div>
-  </header>
-</body>
+        <% } else { %>
+        <a href="/">Войти</a>
+        <% } %>
+      </div>
+    </header>
+  </body>
+</html>
