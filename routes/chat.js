@@ -11,34 +11,39 @@ moment.locale("ru");
 // socket
 const wss = new WebSocketServer.Server({ port: 8082 });
 // add ping pong for updating status
-// update dialog last msgs
 // add scroll load msgs
-// filter clients by rooms
 wss.on("connection", ws => {
   if (sessionUserId) {
     const id = sessionUserId;
     clients[id] = ws;
 
-    ws.on("message", data => {
+    ws.on("message", async data => {
       const parsedData = JSON.parse(data);
+      const roomUsers = await getRoomUsers(parsedData);
 
       for (var key in clients) {
-        clients[key].send(
-          JSON.stringify({
-            ...parsedData,
-            id: key,
-            time: moment(Date.now()).format("HH:mm")
-          })
-        );
+        if (roomUsers.filter(({ id }) => id === key).length) {
+          clients[key].send(
+            JSON.stringify({
+              ...parsedData,
+              id: key,
+              time: moment(Date.now()).format("HH:mm")
+            })
+          );
+        }
       }
     });
     ws.on("close", function() {
       console.log("Соединение закрыто", id);
       delete clients[id];
-      // console.log(2,Object.keys(clients))
     });
   }
 });
+
+async function getRoomUsers({ room }) {
+    const chat = await Chat.findOne({ room })
+    return chat.users;
+}
 
 async function toChat(req, res) {
   const { userId, userLogin } = req.session;
@@ -109,7 +114,7 @@ async function toChat(req, res) {
       });
     } else {
       // рендер списка чатов
-      const chats = await Chat.find({ room: user.chats });
+      const chats = await Chat.find({ room: user.chats }).sort({ createdAt: -1 });
 
       res.render("index.ejs", {
         moment,
@@ -161,6 +166,7 @@ router.post("/sendMsg", async (req, res) => {
     });
 
     const chat = await Chat.findOne({ room });
+    
     chat.lastMsg.sender = {
       id: userId,
       name: userLogin
@@ -173,6 +179,5 @@ router.post("/sendMsg", async (req, res) => {
     });
   }
 });
-// ajax send msg
 
 module.exports = router;

@@ -34,7 +34,7 @@ const sessionParser = session({
   store: new MongoStore({
     mongooseConnection: mongoose.connection
   }),
-  cookie: { maxAge: 1.8e6 } // 30 мин в мс
+  // cookie: { maxAge: 1.8e6 } // 30 мин в мс
 });
 
 // sessions
