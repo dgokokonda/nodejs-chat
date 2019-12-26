@@ -1,21 +1,26 @@
 const express = require("express");
 const router = express.Router();
 const moment = require("moment");
-const { User, Chat, Message } = require("../models");
+const { User, Chat, Message, Session } = require("../models");
 const WebSocketServer = new require("ws");
 const clients = {};
-let sessionUserId = null;
+let sessionData = null;
 
 moment.locale("ru");
+ 
+function heartbeat() {
+  this.isAlive = true;
+}
 
 // socket
 const wss = new WebSocketServer.Server({ port: 8082 });
-// add ping pong for updating status
 // add scroll load msgs
 wss.on("connection", ws => {
-  if (sessionUserId) {
-    const id = sessionUserId;
+  if (sessionData && sessionData.userId) {
+    const id = sessionData.userId;
     clients[id] = ws;
+    ws.isAlive = true;
+    ws.on('pong', heartbeat);
 
     ws.on("message", async data => {
       const parsedData = JSON.parse(data);
@@ -33,12 +38,31 @@ wss.on("connection", ws => {
         }
       }
     });
-    ws.on("close", function() {
+    ws.on("close", async function() {
       console.log("Соединение закрыто", id);
       delete clients[id];
     });
   }
 });
+
+setInterval(function() {
+  wss.clients.forEach(function each(ws) {
+    if (ws.isAlive === false) return ws.terminate();
+  
+    ws.isAlive = false;
+    closeSession()
+  });
+}, 180000);
+
+async function closeSession() {
+  await Session.findOneAndDelete({ session: JSON.stringify(sessionData) });
+  const user = await User.findById(sessionData.userId);
+  user.status = 'offline';
+  await user.save();
+  // console.log(session, user)
+  sessionData = null;
+  // пока не обновляется статус на странице
+}
 
 async function getRoomUsers({ room }) {
     const chat = await Chat.findOne({ room })
@@ -49,7 +73,7 @@ async function toChat(req, res) {
   const { userId, userLogin } = req.session;
 
   if (userId && userLogin) {
-    sessionUserId = userId;
+    sessionData = req.session;
 
     const companionId = req.params.companion;
     const user = await User.findById(userId);

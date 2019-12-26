@@ -65,7 +65,6 @@ $(function() {
             username,
             userId: user.attr("id"),
             recipient,
-            // sender: user.attr("id"),
             room
           })
         );

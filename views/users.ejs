@@ -9,7 +9,7 @@ include('layout/header') %>
         <% users.forEach(function(user) { %>
         <div>
           <!-- link to profile user/id -->
-          <span class="user"><%= user.login %></span>
+          <span class="user" data-id="<%= user.id %>"><%= user.login %></span>
           <span
             class="status <%= user.status == 'online' ? 'status--online' : 'status--offline' %>"
             ><%= user.status %></span
