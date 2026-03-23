@@ -1,40 +1,44 @@
-<% if (user.id && user.login) { %> <%- include('layout/header') %>
-
-<div class="main">
-  <div class="container">
-    <div class="dialogs-wrapper">
-      <h2>Chat</h2>
-      <div class="dialogs">
-        <% if (chats && chats.length) { %> <% chats.forEach(function(chat) {
-        const recipient = chat.users.find(us => us.id !== user.id); %>
-        <!--  -->
-        <% if (chat.lastMsg.msg) { %>
-        <div class="user" data-friend-id="<%= recipient.id %>">
-          <a href="/chat/<%= user.id %>/sel=<%= recipient.id %>">
-            <div class="avatar"></div>
-            <div class="dialog" data-chat-id="<%= chat.room %>">
-              <div class="username">
-                <b><span><%= recipient.login %></span></b>
-                <span class="msg-time"
-                  ><%= moment(chat.lastMsg.createdAt).format('HH:mm') %></span
-                >
-              </div>
-              <div class="msg"><%= chat.lastMsg.msg %></div>
-            </div>
-          </a>
+<% if (user.id && user.login) { %>
+  <%- include('layout/header') %>
+    <div class="main">
+      <div class="container">
+        <div class="dialogs-wrapper">
+          <h2>Chat</h2>
+          <div class="dialogs">
+            <% if (chats && chats.length) { %>
+              <% chats.forEach(function(chat) { %>
+                <% if (chat.lastMsg) { %>
+                  <div class="user" data-friend-id="<%= chat.companion.user_id %>">
+                    <a href="/chat/<%= user.id %>/sel=<%= chat.companion.user_id %>">
+                      <div class="avatar"></div>
+                      <div class="dialog" data-chat-id="<%= chat.room %>">
+                        <div class="username">
+                          <b><span>
+                              <%= chat.companion.login %>
+                            </span></b>
+                          <span class="msg-time">
+                            <%= moment(chat.lastMsg.createdAt).format('HH:mm') %>
+                          </span>
+                        </div>
+                        <div class="msg">
+                          <%= chat.lastMsg.msg %>
+                        </div>
+                      </div>
+                    </a>
+                  </div>
+                  <% } %>
+                    <% }) %>
+                      <% if (chats.every(ch=> !ch.lastMsg)) { %>
+                        <p>Список диалогов пуст</p>
+                        <a class="list" href="/chat/users">Выбрать юзера из списка</a>
+                        <% } %>
+                          <% } else { %>
+                            <p>Список диалогов пуст</p>
+                            <a class="list" href="/chat/users">Выбрать юзера из списка</a>
+                            <% } %>
+          </div>
         </div>
-        <% } %> <% }); %>
-        <!--  -->
-        <% if (chats.every(ch => !ch.lastMsg.msg)) { %>
-        <p>Список диалогов пуст</p>
-        <a class="list" href="/chat/users">Выбрать юзера из списка</a>
-        <% } %> <% } else { %>
-        <p>Список диалогов пуст</p>
-        <a class="list" href="/chat/users">Выбрать юзера из списка</a>
-        <% } %>
       </div>
     </div>
-  </div>
-</div>
-
-<%- include('layout/footer') %> <% } %>
+    <%- include('layout/footer') %>
+      <% } %>

@@ -1,158 +1,185 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcrypt-nodejs");
+const bcrypt = require("bcrypt");
 const { User } = require("../models");
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { userId, userLogin } = req.session;
 
   if (userId && userLogin) {
     res.redirect(`/chat/${userId}`);
   } else {
-    res.render("auth");
+    res.render("auth", { user: null });
   }
 });
 
+// Логин
 router.post("/ajax/login", async (req, res) => {
+  console.log("Login request body:", req.body);
+
   const { login, password } = req.body;
 
   if (!login || !password) {
-    res.json({
+    return res.json({
       ok: false,
       error: "Все поля должны быть заполнены!",
-      fields: ["auth-login", "auth-pass"]
+      fields: ["auth-login", "auth-pass"],
     });
-  } else {
-    const user = await User.findOne({ login });
-    if (!user) {
-      res.json({
-        ok: false,
-        error: "Введены неправильные данные входа!",
-        fields: ["auth-login", "auth-pass"]
-      });
-    } else {
-      bcrypt.compare(password, user.password, async (err, valid) => {
-        if (!valid) {
-          res.json({
-            ok: false,
-            error: "Введены неправильные данные входа!",
-            fields: ["auth-login", "auth-pass"]
-          });
-        } else {
-          if (user) {
-            user.status = "online";
-            await user.save();
+  }
 
-            req.session.userId = user.id;
-            req.session.userLogin = user.login;
-            req.session.status = user.status;
-            res.json({
-              ok: true,
-              userId: user.id
-            });
-          }
-          if (err) {
-            console.log(err);
-            res.json({
-              ok: false,
-              error: "Ошибка, попробуйте позже!"
-            });
-          }
-        }
+  try {
+    const user = await User.findByLogin(login);
+    console.log("Found user:", user);
+
+    if (!user) {
+      return res.json({
+        ok: false,
+        error: "Пользователь не найден!",
+        fields: ["auth-login", "auth-pass"],
       });
     }
+
+    const valid = await bcrypt.compare(password, user.password);
+    console.log("Password valid:", valid);
+
+    if (!valid) {
+      return res.json({
+        ok: false,
+        error: "Неверный пароль!",
+        fields: ["auth-login", "auth-pass"],
+      });
+    }
+
+    await User.updateStatus(user.id, "online");
+
+    req.session.userId = user.id;
+    req.session.userLogin = user.login;
+    req.session.status = "online";
+
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+        return res.json({
+          ok: false,
+          error: "Ошибка сервера",
+        });
+      }
+
+      console.log("Login successful, session saved");
+      res.json({
+        ok: true,
+        userId: user.id,
+      });
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.json({
+      ok: false,
+      error: "Ошибка, попробуйте позже!",
+    });
   }
 });
 
+// Регистрация
 router.post("/ajax/register", async (req, res) => {
+  console.log("Register request body:", req.body);
+
   const { login, password, passwordConfirm } = req.body;
 
   if (!login || !password || !passwordConfirm) {
-    res.json({
+    return res.json({
       ok: false,
       error: "Все поля должны быть заполнены!",
-      fields: ["reg-login", "reg-pass", "reg-pass-confirm"]
+      fields: ["reg-login", "reg-pass", "reg-pass-confirm"],
     });
-  } else if (!/^[a-z\d_-]*$/i.test(login)) {
-    res.json({
+  }
+
+  if (!/^[a-z\d_-]*$/i.test(login)) {
+    return res.json({
       ok: false,
-      error:
-        "Логин может содержать только символы латиницы, цифр, дефиса и нижнего подчеркивания!",
-      fields: ["reg-login"]
+      error: "Логин может содержать только символы латиницы, цифр, дефиса и нижнего подчеркивания!",
+      fields: ["reg-login"],
     });
-  } else if (login.length < 3 || login.length > 16) {
-    res.json({
+  }
+
+  if (login.length < 3 || login.length > 16) {
+    return res.json({
       ok: false,
       error: "Длина логина от 3 до 16 символов!",
-      fields: ["reg-login"]
+      fields: ["reg-login"],
     });
-  } else if (password !== passwordConfirm) {
-    res.json({
+  }
+
+  if (password !== passwordConfirm) {
+    return res.json({
       ok: false,
       error: "Пароли не совпадают!",
-      fields: ["reg-pass", "reg-pass-confirm"]
+      fields: ["reg-pass", "reg-pass-confirm"],
     });
-  } else if (password.length < 6) {
-    res.json({
+  }
+
+  if (password.length < 6) {
+    return res.json({
       ok: false,
       error: "Длина пароля не менее 6 символов!",
-      fields: ["reg-pass"]
+      fields: ["reg-pass"],
     });
-  } else {
-    try {
-      const user = await User.findOne({ login });
+  }
 
-      if (!user) {
-        bcrypt.hash(password, null, null, async (err, hash) => {
-          const user = await User.create({
-            login,
-            password: hash,
-            status: "online"
-          });
+  try {
+    const existingUser = await User.findByLogin(login);
+    console.log("Existing user check:", existingUser);
 
-          if (user) {
-            req.session.userId = user.id;
-            req.session.userLogin = user.login;
-            req.session.status = user.status;
+    if (existingUser) {
+      return res.json({
+        ok: false,
+        error: "Логин уже существует!",
+        fields: ["reg-login"],
+      });
+    }
 
-            res.json({
-              ok: true,
-              userId: user.id
-            });
-          }
-          if (err) {
-            console.log(err);
-            res.json({
-              ok: false,
-              error: "Ошибка, попробуйте позже!"
-            });
-          }
-        });
-      } else {
-        res.json({
+    const hash = await bcrypt.hash(password, 10);
+    const user = await User.create(login, hash);
+    console.log("User created:", user);
+
+    req.session.userId = user.id;
+    req.session.userLogin = user.login;
+    req.session.status = "online";
+
+    req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+        return res.json({
           ok: false,
-          error: "Логин уже существует!",
-          fields: ["reg-login"]
+          error: "Ошибка сервера",
         });
       }
-    } catch (err) {
-      throw new Error("Server Error");
-    }
+
+      console.log("Registration successful, session saved");
+      res.json({
+        ok: true,
+        userId: user.id,
+      });
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.json({
+      ok: false,
+      error: "Ошибка, попробуйте позже!",
+    });
   }
 });
 
 router.get("/ajax/logout", async (req, res) => {
-  if (req.session) {
+  if (req.session && req.session.userId) {
     try {
-      const user = await User.findOne({ login: req.session.userLogin });
-      user.status = "offine";
-      await user.save();
-
+      await User.updateStatus(req.session.userId, "offline");
       req.session.destroy(() => {
         res.redirect("/");
       });
     } catch (err) {
-      throw new Error("Server Error");
+      console.error(err);
+      res.redirect("/");
     }
   } else {
     res.redirect("/");

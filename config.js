@@ -5,7 +5,7 @@ const root = path.join.bind(this, __dirname);
 dotenv.config({ path: root(".env") });
 
 module.exports = {
-  PORT: process.env.PORT || 80,
-  MONGO_URL: process.env.MONGO_URL,
+  PORT: process.env.PORT || 3000,
+  DATABASE_URL: process.env.DATABASE_URL,
   SESSION_SECRET: process.env.SESSION_SECRET
 };

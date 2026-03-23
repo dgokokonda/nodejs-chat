@@ -1,13 +1,18 @@
 <%- include('layout/header') %>
 
-<div class="main">
-    <h1>Page not found</h1>
-    <h3><%= error.status %></h3>
-    <p><%= error.message %></p>
-    <pre>
+    <div class="main">
+        <h1>404 - Page not found</h1>
+        <h3>
+            <%= error.status %>
+        </h3>
+        <p>
+            <%= error.message %>
+        </p>
+        <pre>
         <%= error.stack %>
     </pre>
-</div>
+        <a href="/">Go Home</a>
+    </div>
 
 
-<%- include('layout/footer') %>
+    <%- include('layout/footer') %>

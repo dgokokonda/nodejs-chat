@@ -1,54 +1,38 @@
-const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
-const Chat = require("./chat");
+const db = require("../db");
 
-const schema = new Schema(
-  {
-    // uploads, files
-    room: {
-      type: String
-    },
-    sender: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-      // autopopulate: true
-    },
-    recipient: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-      // autopopulate: true
-    },
-    message: {
-      type: String,
-      required: true
-    },
-    status: {
-      type: String,
-      enum: ["readed", "unreaded"],
-      default: "unreaded",
-      required: true
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
+const Message = {
+  async create(room, senderId, recipientId, message) {
+    const result = await db.query(
+      `INSERT INTO messages (room, sender_id, recipient_id, message, status)
+       VALUES ($1, $2, $3, $4, 'unreaded')
+       RETURNING *`,
+      [room, senderId, recipientId, message]
+    );
+    return result.rows[0];
   },
-  {
-    timestamps: true
+
+  async findByRoom(room, limit = 20) {
+    const result = await db.query(
+      `SELECT m.*, u_s.login as sender_login, u_r.login as recipient_login
+       FROM messages m
+       LEFT JOIN users u_s ON m.sender_id = u_s.id
+       LEFT JOIN users u_r ON m.recipient_id = u_r.id
+       WHERE m.room = $1
+       ORDER BY m.created_at DESC
+       LIMIT $2`,
+      [room, limit]
+    );
+    return result.rows.reverse();
+  },
+
+  async markAsRead(room, userId) {
+    await db.query(
+      `UPDATE messages 
+       SET status = 'readed' 
+       WHERE room = $1 AND recipient_id = $2 AND status = 'unreaded'`,
+      [room, userId]
+    );
   }
-);
+};
 
-// schema.pre("save", async function(next) {
-//   if (this.isNew) {
-//     await Chat.incMessagesCount(this.msg);
-//   }
-//   next();
-// });
-
-schema.set("toJSON", {
-  virtuals: true
-});
-
-module.exports = mongoose.model("Message", schema);
+module.exports = Message;

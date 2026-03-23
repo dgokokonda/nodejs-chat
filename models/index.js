@@ -1,10 +1,8 @@
-const Session = require("./session");
-const User = require("./user");
-const Chat = require("./chat");
-const Message = require("./message");
+const User = require("./User");
+const Chat = require("./Chat");
+const Message = require("./Message");
 
 module.exports = {
-  Session,
   User,
   Chat,
   Message

@@ -1,78 +1,177 @@
 "use strict";
+
 if (!window.WebSocket) {
   document.body.innerHTML = "WebSocket в этом браузере не поддерживается.";
 }
 
-$(function() {
+$(function () {
   const form = $(".msg-report");
   const user = $(".user");
-  const username = user.data("login");
-  const room = user.find(".chat").data("chat-id");
-  const socket = new WebSocket(`ws://${document.location.hostname}:8082`); // or ws://localhost:8081
-  // socket
-  socket.onmessage = function(ev) {
-    const data = JSON.parse(ev.data);
-    const msgs = $(".messages");
-    const msgBlock = `<div
-    data-id="${data.id}"
-    class="message">
-    <span>${data.username}:</span>
-    <span class="msg-time">${data.time}</span>
-    <p>${data.msg}</p>
-    </div>`;
+  let username = user.data("login");
+  let socket = null;
+  let currentRoom = null;
+  let currentRecipientId = null;
+  let pendingMessages = new Set(); // Храним временные ID отправленных сообщений
 
-    msgs.animate({ scrollTop: 0 });
-    // msgs.animate({ scrollTop: $('.messages .message:last-child').position().top });
-    msgs.prepend(msgBlock);
-    form.find('[name="msg"]').val("");
+  // Инициализация WebSocket после загрузки страницы чата
+  if (user.length && user.find(".chat").length) {
+    currentRoom = user.find(".chat").data("chat-id");
+    currentRecipientId = user.find("button").data("recipient-id");
 
-    if ($(".dialogs").length) {
-      const myId = $("header span.me").data("my-id");
-      const dialog = $(`.dialog[data-chat-id="${data.room}"]`);
-      const lastMsg = `<div class="username">
-          <b><span>${data.username}</span></b>
-          <span class="msg-time">${data.time}</span></div>
-        <div class="msg">${data.msg}</div>`;
+    // Используем WebSocket с передачей userId через URL
+    const userId = user.attr("id");
+    socket = new WebSocket(`ws://${document.location.hostname}:8082?userId=${userId}`);
 
-      if (dialog.length) {
-        dialog.html(lastMsg);
-      } else {
-        const dialogWrapper = `<div class="user" data-friend-id="${data.userId}">
-          <a href="/chat/${myId}/sel=${data.userId}">
-            <div class="avatar">${""}</div>`;
+    socket.onopen = function () {
+      console.log("WebSocket connected");
+    };
 
-        $(".dialogs").prepend(dialogWrapper + lastMsg + "</a></div>");
+    socket.onmessage = function (ev) {
+      const data = JSON.parse(ev.data);
+      console.log("WS message received:", data);
+
+      // Игнорируем сообщения от себя
+      if (data.username === username) {
+        console.log("Ignoring own message");
+        return;
       }
-    }
-  };
 
-  socket.onerror = function(err) {
-    console.log("err", err);
-  };
+      // Добавляем сообщение, если оно для текущей комнаты
+      if (data.room === currentRoom) {
+        addMessageToChat(data);
+      }
+
+      // Обновление списка диалогов
+      if ($(".dialogs").length) {
+        updateDialogsList(data);
+      }
+    };
+
+    socket.onerror = function (err) {
+      console.log("WebSocket error", err);
+    };
+
+    socket.onclose = function (ev) {
+      console.log("WebSocket closed", ev.code, ev.reason);
+    };
+  }
+
+  // Функция для добавления сообщения в чат
+  function addMessageToChat(data) {
+    const msgs = $(".messages");
+    const isAnotherUser = data.username !== username;
+    const msgBlock = `
+      <div data-id="${data.userId}" data-time="${data.time}" class="message ${isAnotherUser ? 'message--diffColor' : ''}">
+        <span>${escapeHtml(data.username)}:</span>
+        <span class="msg-time">${data.time || ""}</span>
+        <p>${escapeHtml(data.msg)}</p>
+      </div>
+    `;
+
+    msgs.append(msgBlock);
+    msgs.scrollTop(msgs[0].scrollHeight);
+  }
+
+  // Функция для немедленного добавления своего сообщения
+  function addOwnMessageToChat(msg) {
+    const msgs = $(".messages");
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    // Уникальный ключ для отслеживания
+    const messageKey = `${msg}_${timeStr}`;
+    pendingMessages.add(messageKey);
+
+    // Удаляем ключ через 5 секунд (на случай, если WebSocket не ответит)
+    setTimeout(() => {
+      pendingMessages.delete(messageKey);
+    }, 5000);
+
+    const msgBlock = `
+      <div data-id="${user.attr("id")}" data-time="${timeStr}" class="message">
+        <span>${escapeHtml(username)}:</span>
+        <span class="msg-time">${timeStr}</span>
+        <p>${escapeHtml(msg)}</p>
+      </div>
+    `;
+
+    msgs.append(msgBlock);
+    msgs.scrollTop(msgs[0].scrollHeight);
+
+    // Очищаем поле ввода
+    form.find('[name="msg"]').val("");
+  }
+
+  // Обновление списка диалогов
+  function updateDialogsList(data) {
+    const myId = $("header span.me").data("my-id");
+    const dialog = $(`.dialog[data-chat-id="${data.room}"]`);
+    const lastMsg = `
+      <div class="username">
+        <b><span>${escapeHtml(data.username)}</span></b>
+        <span class="msg-time">${data.time || ""}</span>
+      </div>
+      <div class="msg">${escapeHtml(data.msg)}</div>
+    `;
+
+    if (dialog.length) {
+      dialog.html(lastMsg);
+      const parentUser = dialog.closest('.user');
+      $(".dialogs").prepend(parentUser);
+    } else {
+      const dialogWrapper = `
+        <div class="user" data-friend-id="${data.userId}">
+          <a href="/chat/${myId}/sel=${data.userId}">
+            <div class="avatar"></div>
+      `;
+      $(".dialogs").prepend(dialogWrapper + lastMsg + "</a></div>");
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
 
   function pushMessage(msg) {
-    const recipient = user.find("button").data("recipient-id");
+    if (!currentRoom || !currentRecipientId) return;
 
+    // Сразу добавляем сообщение в интерфейс
+    addOwnMessageToChat(msg);
+
+    // Отправляем через AJAX на сервер
     $.ajax({
       url: "/chat/sendMsg",
       type: "POST",
       contentType: "application/json",
-      data: JSON.stringify({ msg, recipient, room }),
-      success: function() {
-        socket.send(
-          JSON.stringify({
-            msg,
-            username,
+      data: JSON.stringify({
+        msg,
+        recipient: currentRecipientId,
+        room: currentRoom
+      }),
+      success: function () {
+        // Отправляем через WebSocket для других пользователей
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          const messageData = {
+            msg: msg,
+            username: username,
             userId: user.attr("id"),
-            recipient,
-            room
-          })
-        );
-        form.find('[name="msg"]').val("");
-        // location.reload(true);
+            recipient: currentRecipientId,
+            room: currentRoom
+          };
+          console.log("Sending WebSocket message:", messageData);
+          socket.send(JSON.stringify(messageData));
+        }
       },
-      error: function(err) {
-        console.log(err);
+      error: function (err) {
+        console.log("Send message error:", err);
+        // При ошибке можно пометить сообщение как неотправленное
+        $(".messages .message:last-child").addClass("message--error");
       }
     });
   }
@@ -106,7 +205,7 @@ $(function() {
       }
 
       if (data.fields) {
-        data.fields.forEach(function(item) {
+        data.fields.forEach(function (item) {
           form.find("#" + item).addClass("error");
         });
       }
@@ -116,23 +215,24 @@ $(function() {
     return data.ok;
   }
 
-  $(".js-reg, .js-auth").click(function(e) {
+  // Переключение форм
+  $(".js-reg, .js-auth").click(function (e) {
     e.preventDefault();
     $(".auth form").slideToggle(500);
     resetForms($(".auth form"));
   });
 
-  // clear
-  $("input").on("focus", function() {
+  // Очистка ошибок
+  $("input").on("focus", function () {
     resetForms($(this).closest("form"), false);
   });
 
-  $(".form-group").on("click", function() {
+  $(".form-group").on("click", function () {
     resetForms($(this).closest("form"), false);
   });
 
-  // register
-  $(".js-confirm-reg").on("click", function(e) {
+  // Регистрация
+  $(".js-confirm-reg").on("click", function (e) {
     e.preventDefault();
 
     var el = this;
@@ -147,7 +247,7 @@ $(function() {
       data: JSON.stringify(data),
       contentType: "application/json",
       url: "/ajax/register"
-    }).done(function(data) {
+    }).done(function (data) {
       const success = validateForm.call(el, data);
 
       if (success) {
@@ -156,8 +256,8 @@ $(function() {
     });
   });
 
-  // authorization
-  $(".js-confirm-auth").on("click", function(e) {
+  // Авторизация
+  $(".js-confirm-auth").on("click", function (e) {
     e.preventDefault();
 
     var el = this;
@@ -171,7 +271,7 @@ $(function() {
       data: JSON.stringify(data),
       contentType: "application/json",
       url: "/ajax/login"
-    }).done(function(data) {
+    }).done(function (data) {
       const success = validateForm.call(el, data);
 
       if (success) {
@@ -180,7 +280,8 @@ $(function() {
     });
   });
 
-  $(".auth form input").on("keydown", function(e) {
+  // Enter для форм
+  $(".auth form input").on("keydown", function (e) {
     if (e.key == "Enter") {
       $(this)
         .closest("form")
@@ -190,12 +291,13 @@ $(function() {
     }
   });
 
-  // chat
-  $("form[name=sendMsg").submit(function(e) {
+  // Отправка сообщения
+  $("form[name=sendMsg]").submit(function (e) {
     e.preventDefault();
     const newMsg = $(this)
       .find("input[name=msg]")
-      .val();
+      .val()
+      .trim();
 
     if (newMsg) {
       pushMessage(newMsg);

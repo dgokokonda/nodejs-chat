@@ -1,66 +1,72 @@
-const mongoose = require("mongoose");
-const Schema = mongoose.Schema;
+const db = require("../db");
 
-const schema = new Schema(
-  {
-    // status = public, private
-    room: {
-      type: String,
-      required: true
-    },
-    users: [
-      {
-        type: Schema.Types.Mixed
-      }
-    ],
-    lastMsg: {
-      sender: {
-        id: {
-          type: Schema.Types.ObjectId,
-          ref: "User"
-        },
-        name: {
-          type: String
-        }
-      },
-      msg: {
-        type: String
-      },
-      createdAt: {
-        type: Date,
-        default: Date.now
-      },
-      updatedAt: {
-        type: Date,
-        default: Date.now
-      }
-    },
-    // msgCount: {
-    //   type: Number,
-    //   default: 0
-    // },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
+const Chat = {
+  async findById(id) {
+    const result = await db.query("SELECT * FROM chats WHERE id = $1", [id]);
+    return result.rows[0];
   },
-  {
-    timestamps: true
+
+  async findByRoom(room) {
+    const result = await db.query("SELECT * FROM chats WHERE room = $1", [room]);
+    return result.rows[0];
+  },
+
+  async findByUsers(userId1, userId2) {
+    const result = await db.query(
+      `SELECT c.* FROM chats c
+       JOIN chat_users cu1 ON c.id = cu1.chat_id AND cu1.user_id = $1
+       JOIN chat_users cu2 ON c.id = cu2.chat_id AND cu2.user_id = $2
+       WHERE cu1.user_id = $1 AND cu2.user_id = $2`,
+      [userId1, userId2]
+    );
+    return result.rows[0];
+  },
+
+  async create(room, users) {
+    const chatResult = await db.query(
+      "INSERT INTO chats (room) VALUES ($1) ON CONFLICT (room) DO NOTHING RETURNING *",
+      [room]
+    );
+
+    let chat = chatResult.rows[0];
+
+    if (!chat) {
+      const existingChat = await db.query(
+        "SELECT * FROM chats WHERE room = $1",
+        [room]
+      );
+      chat = existingChat.rows[0];
+    }
+
+    for (const user of users) {
+      await db.query(
+        `INSERT INTO chat_users (chat_id, user_id, login) 
+       VALUES ($1, $2, $3) 
+       ON CONFLICT (chat_id, user_id) DO NOTHING`,
+        [chat.id, user.id, user.login]
+      );
+    }
+
+    return chat;
+  },
+
+  async updateLastMessage(chatId, senderId, senderName, message) {
+    await db.query(
+      `INSERT INTO chat_last_messages (chat_id, sender_id, sender_name, message, created_at)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+       ON CONFLICT (chat_id) 
+       DO UPDATE SET sender_id = $2, sender_name = $3, message = $4, created_at = CURRENT_TIMESTAMP`,
+      [chatId, senderId, senderName, message]
+    );
+  },
+
+  async getChatUsers(chatId) {
+    const result = await db.query(
+      "SELECT user_id, login FROM chat_users WHERE chat_id = $1",
+      [chatId]
+    );
+    return result.rows;
   }
-);
+};
 
-// schema.statics = {
-//   incMessagesCount(msgId) {
-//     return this.findByIdAndUpdate(
-//       msgId,
-//       { $inc: { msgCount: 1 } },
-//       { new: true }
-//     );
-//   }
-// };
-
-schema.set("toJSON", {
-  virtuals: true
-});
-
-module.exports = mongoose.model("Chat", schema);
+module.exports = Chat;

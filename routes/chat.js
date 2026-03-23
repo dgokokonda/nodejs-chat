@@ -1,206 +1,152 @@
 const express = require("express");
 const router = express.Router();
 const moment = require("moment");
-const { User, Chat, Message, Session } = require("../models");
-const WebSocketServer = new require("ws");
-const clients = {};
-let sessionData = null;
+const { User, Chat, Message } = require("../models");
 
 moment.locale("ru");
- 
-function heartbeat() {
-  this.isAlive = true;
-}
-
-// socket
-const wss = new WebSocketServer.Server({ port: 8082 });
-// add scroll load msgs
-wss.on("connection", ws => {
-  if (sessionData && sessionData.userId) {
-    const id = sessionData.userId;
-    clients[id] = ws;
-    ws.isAlive = true;
-    ws.on('pong', heartbeat);
-
-    ws.on("message", async data => {
-      const parsedData = JSON.parse(data);
-      const roomUsers = await getRoomUsers(parsedData);
-
-      for (var key in clients) {
-        if (roomUsers.filter(({ id }) => id === key).length) {
-          clients[key].send(
-            JSON.stringify({
-              ...parsedData,
-              id: key,
-              time: moment(Date.now()).format("HH:mm")
-            })
-          );
-        }
-      }
-    });
-    ws.on("close", async function() {
-      console.log("Соединение закрыто", id);
-      delete clients[id];
-    });
-  }
-});
-
-setInterval(function() {
-  wss.clients.forEach(function each(ws) {
-    if (ws.isAlive === false) return ws.terminate();
-  
-    ws.isAlive = false;
-    closeSession()
-  });
-}, 180000);
-
-async function closeSession() {
-  await Session.findOneAndDelete({ session: JSON.stringify(sessionData) });
-  const user = await User.findById(sessionData.userId);
-  user.status = 'offline';
-  await user.save();
-  // console.log(session, user)
-  sessionData = null;
-  // пока не обновляется статус на странице
-}
-
-async function getRoomUsers({ room }) {
-    const chat = await Chat.findOne({ room })
-    return chat.users;
-}
 
 async function toChat(req, res) {
   const { userId, userLogin } = req.session;
 
-  if (userId && userLogin) {
-    sessionData = req.session;
+  if (!userId || !userLogin) {
+    return res.redirect("/");
+  }
 
-    const companionId = req.params.companion;
+  const companionId = req.params.companion || req.params.id;
+
+  if (companionId && companionId !== userId) {
     const user = await User.findById(userId);
     const companion = await User.findById(companionId);
 
-    if (companion) {
-      // переход в комнату чата
-      const recipient = {
-        id: companionId,
-        login: companion.login,
-        status: companion.status
-      };
-      const chatByParams = {
-        users: {
-          $all: [
-            { id: userId, login: userLogin },
-            { id: companionId, login: companion.login }
-          ]
-        } // $all - независимо от порядка эл-в в массиве
-      };
-      let chat = await Chat.findOne(chatByParams);
+    if (!companion) {
+      return res.redirect("/chat/users");
+    }
 
-      if (!chat) {
-        chat = await Chat.create({
-          room: Date.now().toString(),
-          users: [
-            { id: userId, login: userLogin },
-            { id: companionId, login: companion.login }
-          ]
-        });
-      }
+    let chat = await Chat.findByUsers(userId, companionId);
 
-      if (
-        !user.chats.length ||
-        !user.chats.filter(id => id == chat.room).length
-      ) {
-        user.chats.push(chat.room);
-        await user.save();
-      }
-      if (
-        !companion.chats.length ||
-        !companion.chats.filter(id => id == chat.room).length
-      ) {
-        companion.chats.push(chat.room);
-        await companion.save();
-      }
-
-      let messages = await Message.find({ room: chat.room })
-        .sort({ createdAt: -1 })
-        .limit(20);
-      //  || null; // отображать порциями при промотке
-
-      res.render("chat.ejs", {
-        moment,
-        recipient,
-        room: chat.room,
-        messages,
-        user: {
-          id: userId,
-          login: userLogin
-        }
-      });
+    if (!chat) {
+      const room = `${Date.now()}_${userId}_${companionId}`;
+      chat = await Chat.create(room, [
+        { id: userId, login: userLogin },
+        { id: companionId, login: companion.login },
+      ]);
     } else {
-      // рендер списка чатов
-      const chats = await Chat.find({ room: user.chats }).sort({ createdAt: -1 });
+      const existingUsers = await Chat.getChatUsers(chat.id);
+      const existingUserIds = existingUsers.map(u => u.user_id);
 
-      res.render("index.ejs", {
-        moment,
-        chats,
-        user: {
-          id: userId,
-          login: userLogin
-        }
+      if (!existingUserIds.includes(parseInt(userId))) {
+        await db.query(
+          "INSERT INTO chat_users (chat_id, user_id, login) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+          [chat.id, userId, userLogin]
+        );
+      }
+
+      if (!existingUserIds.includes(parseInt(companionId))) {
+        await db.query(
+          "INSERT INTO chat_users (chat_id, user_id, login) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+          [chat.id, companionId, companion.login]
+        );
+      }
+    }
+
+    const userChats = await User.getUserChats(userId);
+    const userHasChat = userChats.some(c => c.room === chat.room);
+
+    if (!userHasChat) {
+      await db.query(
+        "INSERT INTO chat_users (chat_id, user_id, login) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+        [chat.id, userId, userLogin]
+      );
+    }
+
+    const messages = await Message.findByRoom(chat.room, 50);
+    await Message.markAsRead(chat.room, userId);
+
+    res.render("chat", {
+      moment,
+      recipient: companion,
+      room: chat.room,
+      messages,
+      user: {
+        id: userId,
+        login: userLogin,
+      },
+    });
+  } else {
+    const chats = await User.getUserChats(userId);
+    const enrichedChats = [];
+
+    for (const chat of chats) {
+      const chatUsers = await Chat.getChatUsers(chat.id);
+      const companion = chatUsers.find((u) => u.user_id !== parseInt(userId));
+      enrichedChats.push({
+        ...chat,
+        companion,
+        lastMsg: chat.last_msg ? {
+          msg: chat.last_msg,
+          sender: chat.last_msg_sender,
+          createdAt: chat.last_msg_time,
+        } : null,
       });
     }
-  } else {
-    res.redirect("/");
+
+    res.render("index", {
+      moment,
+      chats: enrichedChats,
+      user: {
+        id: userId,
+        login: userLogin,
+      },
+    });
   }
 }
 
 router.get("/users", async (req, res) => {
   const { userId, userLogin } = req.session;
-  if (userId && userLogin) {
-    try {
-      const users = await User.find({});
-      res.render("users.ejs", {
-        users,
-        user: {
-          id: req.session.userId,
-          login: req.session.userLogin,
-          status: req.session.status
-        }
-      });
-    } catch (err) {
-      throw new Error("Server Error");
-    }
-  } else {
-    res.redirect("/");
+
+  if (!userId || !userLogin) {
+    return res.redirect("/");
+  }
+
+  try {
+    const users = await User.findAll();
+    res.render("users", {
+      users,
+      user: {
+        id: userId,
+        login: userLogin,
+        status: req.session.status || "offline",
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    throw new Error("Server Error");
   }
 });
 
 router.get("/:id", (req, res) => toChat(req, res));
 router.get("/:id/sel=:companion", (req, res) => toChat(req, res));
+
 router.post("/sendMsg", async (req, res) => {
   const { msg, recipient, room } = req.body;
-  const { userId, userLogin, status } = req.session;
+  const { userId, userLogin } = req.session;
 
-  if (userId && userLogin) {
-    await Message.create({
-      room,
-      sender: userId,
-      recipient,
-      message: msg
-    });
+  if (!userId || !userLogin) {
+    return res.status(401).json({ ok: false, error: "Unauthorized" });
+  }
 
-    const chat = await Chat.findOne({ room });
-    
-    chat.lastMsg.sender = {
-      id: userId,
-      name: userLogin
-    };
-    chat.lastMsg.msg = msg;
-    await chat.save();
+  try {
+    await Message.create(room, userId, recipient, msg);
 
-    res.json({
-      ok: true
-    });
+    const chat = await Chat.findByRoom(room);
+    if (chat) {
+      await Chat.updateLastMessage(chat.id, userId, userLogin, msg);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: "Server error" });
   }
 });
 
