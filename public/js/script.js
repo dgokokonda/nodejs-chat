@@ -11,14 +11,17 @@ $(function () {
   let socket = null;
   let currentRoom = null;
   let currentRecipientId = null;
-  let pendingMessages = new Set(); // Храним временные ID отправленных сообщений
 
-  // Инициализация WebSocket после загрузки страницы чата
+  // Инициализация Moment.js
+  if (typeof moment !== 'undefined') {
+    moment.locale('ru');
+  }
+
+  // Инициализация WebSocket
   if (user.length && user.find(".chat").length) {
     currentRoom = user.find(".chat").data("chat-id");
     currentRecipientId = user.find("button").data("recipient-id");
 
-    // Используем WebSocket с передачей userId через URL
     const userId = user.attr("id");
     socket = new WebSocket(`ws://${document.location.hostname}:8082?userId=${userId}`);
 
@@ -28,20 +31,11 @@ $(function () {
 
     socket.onmessage = function (ev) {
       const data = JSON.parse(ev.data);
+
       console.log("WS message received:", data);
-
-      // Игнорируем сообщения от себя
-      if (data.username === username) {
-        console.log("Ignoring own message");
-        return;
-      }
-
-      // Добавляем сообщение, если оно для текущей комнаты
-      if (data.room === currentRoom) {
+      if (data.username !== username && data.room === currentRoom) {
         addMessageToChat(data);
       }
-
-      // Обновление списка диалогов
       if ($(".dialogs").length) {
         updateDialogsList(data);
       }
@@ -50,66 +44,205 @@ $(function () {
     socket.onerror = function (err) {
       console.log("WebSocket error", err);
     };
-
-    socket.onclose = function (ev) {
-      console.log("WebSocket closed", ev.code, ev.reason);
-    };
   }
 
-  // Функция для добавления сообщения в чат
+  // === GraphQL функции (используют window.apolloClient) ===
+  async function graphqlRequest(query, variables = {}) {
+    try {
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ query, variables }),
+      });
+      const result = await response.json();
+      if (result.errors) {
+        console.error('GraphQL Errors:', result.errors);
+        throw new Error(result.errors[0]?.message || 'GraphQL error');
+      }
+      return result.data;
+    } catch (error) {
+      console.error('GraphQL request error:', error);
+      throw error;
+    }
+  }
+
+  // Загрузка списка пользователей
+  async function loadUsers() {
+    try {
+      const data = await graphqlRequest(window.GET_USERS);
+      const users = data.users;
+      const myId = $("header span.me").data("my-id");
+
+      const usersList = $(".users-list");
+      usersList.empty();
+
+      users.forEach(user => {
+        const userHtml = `
+          <div>
+            <span class="user" data-id="${user.id}">${escapeHtml(user.login)}</span>
+            <span class="status ${user.status == 'online' ? 'status--online' : 'status--offline'}">
+              ${user.status}
+            </span>
+            ${user.id != myId ? `<a href="/chat/${myId}/sel=${user.id}">написать сообщение</a>` : ''}
+          </div>
+        `;
+        usersList.append(userHtml);
+      });
+    } catch (err) {
+      console.error("Error loading users:", err);
+      $(".users-list").html('<p>Ошибка загрузки пользователей</p>');
+    }
+  }
+
+  // Загрузка списка чатов
+  async function loadChats() {
+    try {
+      const data = await graphqlRequest(window.GET_CHATS);
+      const chats = data.chats;
+      const myId = $("header span.me").data("my-id");
+
+      const dialogs = $(".dialogs");
+      dialogs.empty();
+
+      if (chats && chats.length) {
+        let hasMessages = false;
+        chats.forEach(chat => {
+          const companion = chat.users.find(u => u.userId != myId);
+          if (!companion) return
+          const companionId = companion?.userId || companion?.id
+          if (chat.lastMsg && chat.lastMsg.message) {
+            hasMessages = true;
+            const timeStr = formatDate(+chat.lastMsg.createdAt);
+            const chatHtml = `
+              <div class="user" data-friend-id="${companionId}">
+                <a href="/chat/${myId}/sel=${companionId}">
+                  <div class="avatar"></div>
+                  <div class="dialog" data-chat-id="${chat.room}">
+                    <div class="username">
+                      <b><span>${escapeHtml(companion.login)}</span></b>
+                      <span class="msg-time">${timeStr}</span>
+                    </div>
+                    <div class="msg">${escapeHtml(chat.lastMsg.message)}</div>
+                  </div>
+                </a>
+              </div>
+            `;
+            dialogs.append(chatHtml);
+          }
+        });
+        if (!hasMessages) {
+          dialogs.html('<p>Список диалогов пуст</p><a class="list" href="/chat/users">Выбрать юзера из списка</a>');
+        }
+      } else {
+        dialogs.html('<p>Список диалогов пуст</p><a class="list" href="/chat/users">Выбрать юзера из списка</a>');
+      }
+    } catch (err) {
+      console.error("Error loading chats:", err);
+      $(".dialogs").html('<p>Ошибка загрузки чатов</p>');
+    }
+  }
+
+  // Загрузка сообщений в текущем чате
+  async function loadMessages() {
+    if (!currentRoom) return;
+    try {
+      const data = await graphqlRequest(window.GET_MESSAGES, { room: currentRoom, limit: 50 });
+      const messages = data.messages;
+      const msgs = $(".messages");
+      msgs.empty();
+
+      messages.forEach(msg => {
+        const isOwn = msg.sender.id == user.attr("id");
+        const timeStr = formatTime(msg.createdAt);
+        const msgHtml = `
+          <div data-id="${msg.sender.id}" class="message ${isOwn ? '' : 'message--diffColor'}">
+            <span>${escapeHtml(msg.sender.login)}:</span>
+            <span class="msg-time">${timeStr}</span>
+            <p>${escapeHtml(msg.message)}</p>
+          </div>
+        `;
+        msgs.append(msgHtml);
+      });
+      msgs.scrollTop(msgs[0].scrollHeight);
+    } catch (err) {
+      console.error("Error loading messages:", err);
+    }
+  }
+
+  // Отправка сообщения через GraphQL
+  async function sendMessageViaGraphQL(msg, recipientId, room) {
+    try {
+      const data = await graphqlRequest(window.SEND_MESSAGE, { room, recipientId, message: msg });
+      return data.sendMessage;
+    } catch (err) {
+      console.error("GraphQL error:", err);
+      return null;
+    }
+  }
+
+  // UI функции
+  function formatTime(dateString) {
+    if (typeof moment !== 'undefined') {
+      return moment(+dateString).format('HH:mm');
+    }
+    return new Date(+dateString).toLocaleTimeString().slice(0, 5);
+  }
+
+  function formatDate(dateString) {
+    if (typeof moment !== 'undefined') {
+      const date = moment(dateString);
+      const now = moment();
+      if (date.isSame(now, 'day')) {
+        return date.format('HH:mm');
+      } else if (date.isSame(now.subtract(1, 'day'), 'day')) {
+        return 'Вчера';
+      }
+      return date.format('DD.MM.YY');
+    }
+    return new Date(dateString).toLocaleDateString();
+  }
+
   function addMessageToChat(data) {
     const msgs = $(".messages");
     const isAnotherUser = data.username !== username;
+    const timeStr = data.time || formatTime(data.createdAt || new Date());
     const msgBlock = `
-      <div data-id="${data.userId}" data-time="${data.time}" class="message ${isAnotherUser ? 'message--diffColor' : ''}">
+      <div data-id="${data.userId}" class="message ${isAnotherUser ? 'message--diffColor' : ''}">
         <span>${escapeHtml(data.username)}:</span>
-        <span class="msg-time">${data.time || ""}</span>
+        <span class="msg-time">${timeStr}</span>
         <p>${escapeHtml(data.msg)}</p>
       </div>
     `;
-
     msgs.append(msgBlock);
     msgs.scrollTop(msgs[0].scrollHeight);
   }
 
-  // Функция для немедленного добавления своего сообщения
   function addOwnMessageToChat(msg) {
     const msgs = $(".messages");
     const now = new Date();
     const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 
-    // Уникальный ключ для отслеживания
-    const messageKey = `${msg}_${timeStr}`;
-    pendingMessages.add(messageKey);
-
-    // Удаляем ключ через 5 секунд (на случай, если WebSocket не ответит)
-    setTimeout(() => {
-      pendingMessages.delete(messageKey);
-    }, 5000);
-
     const msgBlock = `
-      <div data-id="${user.attr("id")}" data-time="${timeStr}" class="message">
+      <div data-id="${user.attr("id")}" class="message">
         <span>${escapeHtml(username)}:</span>
         <span class="msg-time">${timeStr}</span>
         <p>${escapeHtml(msg)}</p>
       </div>
     `;
-
     msgs.append(msgBlock);
     msgs.scrollTop(msgs[0].scrollHeight);
-
-    // Очищаем поле ввода
     form.find('[name="msg"]').val("");
   }
 
-  // Обновление списка диалогов
   function updateDialogsList(data) {
     const myId = $("header span.me").data("my-id");
     const dialog = $(`.dialog[data-chat-id="${data.room}"]`);
+    const timeStr = data.time || formatTime(new Date());
     const lastMsg = `
       <div class="username">
         <b><span>${escapeHtml(data.username)}</span></b>
-        <span class="msg-time">${data.time || ""}</span>
+        <span class="msg-time">${timeStr}</span>
       </div>
       <div class="msg">${escapeHtml(data.msg)}</div>
     `;
@@ -118,13 +251,6 @@ $(function () {
       dialog.html(lastMsg);
       const parentUser = dialog.closest('.user');
       $(".dialogs").prepend(parentUser);
-    } else {
-      const dialogWrapper = `
-        <div class="user" data-friend-id="${data.userId}">
-          <a href="/chat/${myId}/sel=${data.userId}">
-            <div class="avatar"></div>
-      `;
-      $(".dialogs").prepend(dialogWrapper + lastMsg + "</a></div>");
     }
   }
 
@@ -141,166 +267,163 @@ $(function () {
   function pushMessage(msg) {
     if (!currentRoom || !currentRecipientId) return;
 
-    // Сразу добавляем сообщение в интерфейс
     addOwnMessageToChat(msg);
 
-    // Отправляем через AJAX на сервер
+    sendMessageViaGraphQL(msg, currentRecipientId, currentRoom).then(() => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          msg: msg,
+          username: username,
+          userId: user.attr("id"),
+          recipient: currentRecipientId,
+          room: currentRoom
+        }));
+      }
+    });
+  }
+
+  // ========== REST-обработчики ==========
+  // Логин (REST)
+  $(".js-confirm-auth").off('click').on("click", function (e) {
+    e.preventDefault();
+    const form = $(this).closest("form");
+    const login = $("#auth-login").val().trim();
+    const password = $("#auth-pass").val();
+
+    form.find("p.error").remove();
+    $(".error").removeClass("error");
+
+    let hasError = false;
+    if (!login) {
+      $("#auth-login").addClass("error");
+      hasError = true;
+    }
+    if (!password) {
+      $("#auth-pass").addClass("error");
+      hasError = true;
+    }
+    if (hasError) {
+      form.find("h2").after('<p class="error">Все поля должны быть заполнены!</p>');
+      return;
+    }
+
     $.ajax({
-      url: "/chat/sendMsg",
+      url: "/ajax/login",
       type: "POST",
       contentType: "application/json",
-      data: JSON.stringify({
-        msg,
-        recipient: currentRecipientId,
-        room: currentRoom
-      }),
-      success: function () {
-        // Отправляем через WebSocket для других пользователей
-        if (socket && socket.readyState === WebSocket.OPEN) {
-          const messageData = {
-            msg: msg,
-            username: username,
-            userId: user.attr("id"),
-            recipient: currentRecipientId,
-            room: currentRoom
-          };
-          console.log("Sending WebSocket message:", messageData);
-          socket.send(JSON.stringify(messageData));
+      data: JSON.stringify({ login, password }),
+      success: function (data) {
+        if (data.ok) {
+          window.location.href = `/chat/${data.userId}`;
+        } else {
+          form.find("p.error").remove();
+          if (data.error) {
+            form.find("h2").after('<p class="error">' + data.error + "</p>");
+          }
+          if (data.fields) {
+            data.fields.forEach(field => {
+              $("#" + field).addClass("error");
+            });
+          }
         }
       },
       error: function (err) {
-        console.log("Send message error:", err);
-        // При ошибке можно пометить сообщение как неотправленное
-        $(".messages .message:last-child").addClass("message--error");
+        console.error("Login error:", err);
+        form.find("p.error").remove();
+        form.find("h2").after('<p class="error">Ошибка сети. Попробуйте позже.</p>');
       }
     });
-  }
+  });
 
-  function resetForms(form, reset) {
-    form.find("input.error, textarea.error, div.error").removeClass("error");
-    form.children("p.error, p.success").remove();
+  // Регистрация (REST)
+  $(".js-confirm-reg").off('click').on("click", function (e) {
+    e.preventDefault();
+    const form = $(this).closest("form");
+    const login = $("#reg-login").val().trim();
+    const password = $("#reg-pass").val().trim();
+    const passwordConfirm = $("#reg-pass-confirm").val();
 
-    if (reset) {
-      form.find("input.error, textarea.error").val("");
-      form.find("div.error").html("");
+    form.find("p.error").remove();
+    $(".error").removeClass("error");
+
+    let hasError = false;
+    if (!login) {
+      $("#auth-login").addClass("error");
+      hasError = true;
     }
-  }
+    if (!password) {
+      $("#auth-pass").addClass("error");
+      hasError = true;
+    }
+    if (hasError) {
+      form.find("h2").after('<p class="error">Все поля должны быть заполнены!</p>');
+      return;
+    }
 
-  function validateForm(data) {
-    const form = this.tagName == "FORM" ? $(this) : $(this).closest("form");
-    form.children("p").remove();
-
-    if (!data.ok) {
-      if (data.error) {
-        const fTitle = form.find("h2");
-
-        if (fTitle.length) {
-          fTitle.after('<p class="error">' + data.error + "</p>");
+    $.ajax({
+      url: "/ajax/register",
+      type: "POST",
+      contentType: "application/json",
+      data: JSON.stringify({ login, password, passwordConfirm }),
+      success: function (data) {
+        if (data.ok) {
+          window.location.href = `/chat/${data.userId}`;
         } else {
-          form
-            .children()
-            .eq(0)
-            .before('<p class="error">' + data.error + "</p>");
+          form.find("p.error").remove();
+          if (data.error) {
+            form.find("h2").after('<p class="error">' + data.error + "</p>");
+          }
+          if (data.fields) {
+            data.fields.forEach(field => {
+              $("#" + field).addClass("error");
+            });
+          }
         }
+      },
+      error: function (err) {
+        console.error("Register error:", err);
+        form.find("p.error").remove();
+        form.find("h2").after('<p class="error">Ошибка сети. Попробуйте позже.</p>');
       }
+    });
+  });
 
-      if (data.fields) {
-        data.fields.forEach(function (item) {
-          form.find("#" + item).addClass("error");
-        });
-      }
-    } else {
-      resetForms(form);
-    }
-    return data.ok;
-  }
+  // Выход (REST)
+  $("a[href='/ajax/logout']").off('click').on("click", function (e) {
+    e.preventDefault();
+    window.location.href = "/ajax/logout";
+  });
 
-  // Переключение форм
+  // Переключение форм авторизации/регистрации
   $(".js-reg, .js-auth").click(function (e) {
     e.preventDefault();
     $(".auth form").slideToggle(500);
-    resetForms($(".auth form"));
+    $(".auth form").find("p.error").remove();
+    $(".auth form").find("input.error").removeClass("error");
   });
 
-  // Очистка ошибок
   $("input").on("focus", function () {
-    resetForms($(this).closest("form"), false);
+    $(this).closest("form").find("p.error").remove();
+    $(this).removeClass("error");
   });
 
-  $(".form-group").on("click", function () {
-    resetForms($(this).closest("form"), false);
-  });
-
-  // Регистрация
-  $(".js-confirm-reg").on("click", function (e) {
-    e.preventDefault();
-
-    var el = this;
-    var data = {
-      login: $("#reg-login").val(),
-      password: $("#reg-pass").val(),
-      passwordConfirm: $("#reg-pass-confirm").val()
-    };
-
-    $.ajax({
-      type: "POST",
-      data: JSON.stringify(data),
-      contentType: "application/json",
-      url: "/ajax/register"
-    }).done(function (data) {
-      const success = validateForm.call(el, data);
-
-      if (success) {
-        $(location).attr("href", `/chat/${data.userId}`);
-      }
-    });
-  });
-
-  // Авторизация
-  $(".js-confirm-auth").on("click", function (e) {
-    e.preventDefault();
-
-    var el = this;
-    var data = {
-      login: $("#auth-login").val(),
-      password: $("#auth-pass").val()
-    };
-
-    $.ajax({
-      type: "POST",
-      data: JSON.stringify(data),
-      contentType: "application/json",
-      url: "/ajax/login"
-    }).done(function (data) {
-      const success = validateForm.call(el, data);
-
-      if (success) {
-        $(location).attr("href", `/chat/${data.userId}`);
-      }
-    });
-  });
-
-  // Enter для форм
-  $(".auth form input").on("keydown", function (e) {
-    if (e.key == "Enter") {
-      $(this)
-        .closest("form")
-        .find(".btns button:last-child")
-        .trigger("click");
-      e.preventDefault();
-    }
-  });
-
-  // Отправка сообщения
   $("form[name=sendMsg]").submit(function (e) {
     e.preventDefault();
-    const newMsg = $(this)
-      .find("input[name=msg]")
-      .val()
-      .trim();
-
+    const newMsg = $(this).find("input[name=msg]").val().trim();
     if (newMsg) {
       pushMessage(newMsg);
     }
   });
+
+  // ========== Загрузка данных в зависимости от пути ==========
+  const path = window.location.pathname;
+  if (path.includes("/chat/users")) {
+    loadUsers();
+  } else if (path.match(/\/chat\/\d+$/) && !path.includes("sel=")) {
+    loadChats();
+  } else if (path.includes("sel=")) {
+    loadMessages();
+  } else {
+    console.log('No matching route for:', path);
+  }
 });

@@ -1,4 +1,4 @@
-<% if (user.id && user.login) { %>
+<% if (user && user.id && user.login) { %>
   <%- include('layout/header') %>
     <div class="main">
       <div class="container">
@@ -10,22 +10,7 @@
               </h3>
               <div class="chat" data-chat-id="<%= room %>">
                 <div class="messages">
-                  <% if (messages && messages.length) { %>
-                    <% messages.forEach(function(msg) { %>
-                      <div data-id="<%= msg.sender_id %>"
-                        class="message <%= msg.sender_id == user.id ? '' : 'message--diffColor' %>">
-                        <span>
-                          <%= msg.sender_id==user.id ? user.login : recipient.login %>:
-                        </span>
-                        <span class="msg-time">
-                          <%= moment(msg.created_at).format('HH:mm') %>
-                        </span>
-                        <p>
-                          <%= msg.message %>
-                        </p>
-                      </div>
-                      <% }) %>
-                        <% } %>
+                  <!-- Сообщения загружаются через GraphQL -->
                 </div>
                 <form name="sendMsg" class="msg-report">
                   <input type="text" name="msg" />

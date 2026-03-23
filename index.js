@@ -7,62 +7,100 @@ const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
 const { pool } = require("./db");
 const routes = require("./routes");
+const authRoutes = require("./routes/auth");   // <-- добавлено
 const { setupWebSocket } = require("./websocket");
+
+const { ApolloServer } = require("@apollo/server");
+const { expressMiddleware } = require("@apollo/server/express4");
+const { typeDefs, resolvers } = require("./graphql/schema");
+const context = require("./graphql/context");
 
 const app = express();
 
-// Session store in PostgreSQL
+// Session
 const sessionParser = session({
-  store: new pgSession({
-    pool: pool,
-    tableName: "session",
-    createTableIfMissing: true,
-  }),
+  store: new pgSession({ pool, tableName: "session", createTableIfMissing: true }),
   secret: config.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: {
-    maxAge: 30 * 60 * 1000, // 30 минут
-    httpOnly: true,
-    secure: false,
-    sameSite: 'lax'
-  },
+  cookie: { maxAge: 30 * 60 * 1000, httpOnly: true, secure: false, sameSite: 'lax' },
   name: 'connect.sid'
 });
 
 app.use(sessionParser);
 
+// Парсеры (для REST и GraphQL)
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Статика
+app.use(express.static(path.join(__dirname, "public")));
+app.use("/js", express.static(path.join(__dirname, "node_modules", "jquery", "dist")));
+app.use("/lib/moment", express.static(path.join(__dirname, "node_modules", "moment", "min")));
+
 // View engine
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-// Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, "public")));
+// Apollo Server
+async function startServer() {
+  const apolloServer = new ApolloServer({
+    typeDefs,
+    resolvers,
+    csrfPrevention: false,
+  });
 
-// Routes
-app.use("/", routes.auth);
-app.use("/chat", routes.chat);
+  await apolloServer.start();
+  // console.log("✓ Apollo Server started");
 
-// 404 handler
-app.use("/", (req, res, next) => {
-  res.status(404).render("404", { error: { message: "Page Not Found" } });
-});
+  app.use(
+    "/graphql",
+    expressMiddleware(apolloServer, {
+      context: async ({ req }) => context({ req }),
+    })
+  );
+  // console.log("✓ GraphQL middleware added");
 
-// Error handler
-app.use((error, req, res, next) => {
-  console.error(error);
-  res.status(error.status || 500);
-  res.render("404", { error });
-});
+  // REST-маршруты (авторизация)
+  app.use("/", authRoutes);   // <-- добавлено
 
-const server = app.listen(config.PORT, () => {
-  console.log(`Server is running on port ${config.PORT}`);
-  console.log(`WebSocket server will run on port 8082`);
-});
+  app.post("/", (req, res) => {
+    // Если форма случайно отправилась, перенаправляем на GET /
+    res.redirect("/");
+  });
 
-// Setup WebSocket with session support
-setupWebSocket(server, sessionParser);
+  // Основные страницы
+  app.get("/", (req, res) => {
+    const { userId, userLogin } = req.session;
+    if (userId && userLogin) {
+      res.redirect(`/chat/${userId}`);
+    } else {
+      res.render("auth", { user: null });
+    }
+  });
 
-module.exports = { sessionParser };
+  app.use("/chat", routes.chat);
+
+  // 404 handler
+  app.use((req, res) => {
+    res.status(404).render("404", { error: { message: "Page Not Found" } });
+  });
+
+  // Error handler
+  app.use((error, req, res, next) => {
+    console.error(error);
+    res.status(error.status || 500);
+    res.render("404", { error });
+  });
+
+
+  const server = app.listen(config.PORT, () => {
+    console.log(`✓ Server running on http://localhost:${config.PORT}`);
+    console.log(`✓ GraphQL endpoint: http://localhost:${config.PORT}/graphql`);
+    console.log(`✓ WebSocket server on port 8082`);
+  });
+
+  setupWebSocket(server, sessionParser);
+}
+
+startServer().catch(console.error);

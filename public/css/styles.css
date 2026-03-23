@@ -253,6 +253,15 @@ textarea {
   /* resize: none; */
 }
 
+input.error {
+  border-color: red;
+}
+
+p.error {
+  color: red;
+  margin: 10px 0;
+}
+
 /* auth/post styles */
 
 .auth {

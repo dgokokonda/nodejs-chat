@@ -1,7 +1,7 @@
 <%- include('layout/header') %>
   <div class="container container--auth">
     <div class="auth">
-      <form method="post" name="auth">
+      <form method="post" name="auth" onsubmit="return false;">
         <h2>Вход</h2>
         <div class="form-group">
           <label for="auth-login">Логин</label>
@@ -12,11 +12,11 @@
           <input type="password" id="auth-pass" name="auth-pass" />
         </div>
         <div class="btns">
-          <button class="button button--left js-reg">Регистрация</button>
-          <button class="button button--right js-confirm-auth">Войти</button>
+          <button type="button" class="button button--left js-reg">Регистрация</button>
+          <button type="button" class="button button--right js-confirm-auth">Войти</button>
         </div>
       </form>
-      <form method="post" name="reg">
+      <form method="post" name="reg" onsubmit="return false;">
         <h2>Регистрация</h2>
         <div class="form-group">
           <label for="reg-login">Логин</label>
@@ -31,8 +31,8 @@
           <input type="password" id="reg-pass-confirm" name="reg-pass-confirm" />
         </div>
         <div class="btns">
-          <button class="button button--left js-auth">Авторизация</button>
-          <button class="button button--right js-confirm-reg">Создать</button>
+          <button type="button" class="button button--left js-auth">Авторизация</button>
+          <button type="button" class="button button--right js-confirm-reg">Создать</button>
         </div>
       </form>
     </div>

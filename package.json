@@ -4,13 +4,19 @@
   "description": "Chat application with PostgreSQL and WebSockets",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "init-db": "node init-db.js"
+    "build:umd": "node build-umd.js",
+    "dev": "npm run build:umd && nodemon index.js",
+    "start": "npm run build:umd && node index.js",
+    "init-db": "node init-db.js",
+    "build:libs": "node build.js"
   },
   "author": "dgokokonda",
   "license": "ISC",
   "dependencies": {
+    "@apollo/client": "^3.7.11",
+    "@apollo/server": "^4.6.0",
+    "@graphql-tools/merge": "^9.1.7",
+    "@graphql-tools/schema": "^10.0.3",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
     "connect-pg-simple": "^9.0.1",
@@ -18,11 +24,16 @@
     "ejs": "^3.1.9",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
+    "graphql": "^16.6.0",
+    "graphql-tag": "^2.12.6",
+    "graphql-ws": "^5.15.0",
+    "jquery": "^3.7.1",
     "moment": "^2.29.4",
     "pg": "^8.11.3",
     "ws": "^8.14.2"
   },
   "devDependencies": {
+    "esbuild": "^0.27.4",
     "nodemon": "^3.0.1"
   },
   "engines": {

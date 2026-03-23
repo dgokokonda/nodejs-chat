@@ -24,29 +24,17 @@ const Chat = {
 
   async create(room, users) {
     const chatResult = await db.query(
-      "INSERT INTO chats (room) VALUES ($1) ON CONFLICT (room) DO NOTHING RETURNING *",
+      "INSERT INTO chats (room) VALUES ($1) RETURNING *",
       [room]
     );
-
-    let chat = chatResult.rows[0];
-
-    if (!chat) {
-      const existingChat = await db.query(
-        "SELECT * FROM chats WHERE room = $1",
-        [room]
-      );
-      chat = existingChat.rows[0];
-    }
+    const chat = chatResult.rows[0];
 
     for (const user of users) {
       await db.query(
-        `INSERT INTO chat_users (chat_id, user_id, login) 
-       VALUES ($1, $2, $3) 
-       ON CONFLICT (chat_id, user_id) DO NOTHING`,
+        "INSERT INTO chat_users (chat_id, user_id, login) VALUES ($1, $2, $3)",
         [chat.id, user.id, user.login]
       );
     }
-
     return chat;
   },
 
