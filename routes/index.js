@@ -1,9 +1,7 @@
-const auth = require("./auth");
 const chat = require("./chat");
-const users = require("./users");
+const auth = require('./auth')
 
 module.exports = {
   auth,
   chat,
-  users
 };
